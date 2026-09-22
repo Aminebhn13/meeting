@@ -1,0 +1,14 @@
+{
+  "name": "meeting-copilot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Copilote IA mobile pour visioconferences : transcription live, questions suggerees, bilan structure.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}

@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="Copilote IA de réunion : transcription en direct, questions à poser, bilan structuré.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meeting Copilot">
+<title>Meeting Copilot</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<style>
+  :root {
+    --bg:            #0d1117;
+    --bg-elev:       #161b22;
+    --card:          #161b22;
+    --card-inner:    #0d1117;
+    --border:        #262c36;
+    --border-soft:   #21262d;
+    --text:          #e6edf3;
+    --text-dim:      #9198a1;
+    --text-faint:    #6e7681;
+    --accent:        #58a6ff;
+    --accent-dim:    #1f6feb;
+    --danger:        #f85149;
+    --danger-dim:    #b62324;
+    --ok:            #3fb950;
+    --warn:          #d29922;
+    --radius:        14px;
+    --bar-h:         76px;
+    --safe-b:        env(safe-area-inset-bottom, 0px);
+    --safe-t:        env(safe-area-inset-top, 0px);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
+    padding: calc(var(--safe-t) + 8px) 12px calc(var(--bar-h) + var(--safe-b) + 24px);
+    max-width: 780px;
+    margin: 0 auto;
+  }
+
+  /* ---------- En-tête ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px 14px;
+  }
+  header h1 {
+    font-size: 17px;
+    font-weight: 650;
+    margin: 0;
+    letter-spacing: -0.01em;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 11px 5px 9px;
+    white-space: nowrap;
+  }
+  .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex: none;
+  }
+  .dot.rec {
+    background: var(--danger);
+    animation: blink 1.15s ease-in-out infinite;
+  }
+  .dot.paused { background: var(--warn); }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .18; } }
+  @media (prefers-reduced-motion: reduce) { .dot.rec { animation: none; } }
+
+  /* ---------- Cartes ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 14px;
+    font-size: 14px;
+    font-weight: 620;
+    letter-spacing: .01em;
+  }
+  .card-head .ttl { flex: 1; }
+  .card-head .badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: var(--card-inner);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  button.card-head {
+    width: 100%;
+    background: none;
+    border: 0;
+    color: var(--text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .chev { color: var(--text-faint); transition: transform .18s ease; font-size: 12px; }
+  .card.open .chev { transform: rotate(90deg); }
+  .card-body { padding: 0 14px 14px; }
+  .card:not(.open) > .card-body[data-collapsible] { display: none; }
+
+  /* ---------- Formulaire ---------- */
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin: 12px 0 6px;
+    letter-spacing: .02em;
+  }
+  label:first-child { margin-top: 2px; }
+  .hint {
+    display: block;
+    line-height: 1.4;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-weight: 400;
+    margin-top: 4px;
+    letter-spacing: 0;
+  }
+  input[type=text], input[type=password], textarea, select {
+    width: 100%;
+    background: var(--card-inner);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 16px; /* 16px = pas de zoom auto sur iOS */
+    padding: 11px 12px;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  textarea { resize: vertical; min-height: 76px; line-height: 1.45; }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--accent-dim);
+    box-shadow: 0 0 0 3px rgba(88,166,255,.14);
+  }
+  select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%239198a1' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 34px;
+  }
+
+  /* ---------- Boutons ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 11px 14px;
+    cursor: pointer;
+    min-height: 44px;
+    transition: background .12s ease, opacity .12s ease;
+  }
+  .btn:active { background: #1f252e; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  .btn.primary:active { background: #1a5fc8; }
+  .btn.wide { width: 100%; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1 1 140px; }
+
+  /* ---------- Questions ---------- */
+  ol.questions { list-style: none; margin: 0; padding: 0; counter-reset: q; }
+  ol.questions li {
+    counter-increment: q;
+    position: relative;
+    background: var(--card-inner);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 11px 12px 11px 40px;
+    margin-bottom: 8px;
+    font-size: 14.5px;
+    line-height: 1.45;
+  }
+  ol.questions li::before {
+    content: counter(q);
+    position: absolute;
+    left: 11px; top: 11px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--accent-dim);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ---------- Transcription ---------- */
+  #transcript {
+    background: var(--card-inner);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 12px;
+    height: 34vh;
+    min-height: 180px;
+    max-height: 420px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 14.5px;
+    line-height: 1.55;
+    overscroll-behavior: contain;
+  }
+  #transcript p { margin: 0 0 9px; }
+  #transcript p:last-child { margin-bottom: 0; }
+  .ts {
+    color: var(--text-faint);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    margin-right: 6px;
+    user-select: none;
+  }
+  .interim { color: var(--text-faint); font-style: italic; }
+
+  /* ---------- Sortie IA ---------- */
+  .out {
+    background: var(--card-inner);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .out.summary { max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .out h4 {
+    margin: 14px 0 5px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--accent);
+  }
+  .out h4:first-child { margin-top: 0; }
+  .verify {
+    display: block;
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px dashed var(--border);
+    color: var(--warn);
+    font-size: 13.5px;
+  }
+  .empty { color: var(--text-faint); font-size: 13.5px; font-style: italic; }
+
+  /* ---------- Messages ---------- */
+  .msg {
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+    border: 1px solid;
+  }
+  .msg.err  { background: rgba(248,81,73,.09);  border-color: rgba(248,81,73,.35);  color: #ffb4ae; }
+  .msg.warn { background: rgba(210,153,34,.09); border-color: rgba(210,153,34,.35); color: #e3b341; }
+  .msg.info { background: rgba(88,166,255,.08); border-color: rgba(88,166,255,.3);  color: #a5d0ff; }
+  .msg:empty { display: none; }
+  .msg b { font-weight: 680; }
+
+  .spin {
+    display: inline-block;
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,.28);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Barre fixe ---------- */
+  .bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px calc(10px + var(--safe-b));
+    background: rgba(13,17,23,.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    z-index: 50;
+  }
+  .bar .btn {
+    flex: 1;
+    min-height: 54px;
+    font-size: 16px;
+    font-weight: 680;
+    border-radius: 12px;
+  }
+  .bar .btn.rec-on  { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  .bar .btn.rec-off { background: var(--warn); border-color: var(--warn); color: #1b1200; }
+  .bar .btn.stop    { background: var(--card); border-color: var(--danger-dim); color: #ff9d97; }
+  .bar .btn.stop:disabled { color: var(--text-faint); border-color: var(--border); }
+
+  footer {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    padding: 6px 0 2px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎙️ Meeting Copilot</h1>
+  <div class="status">
+    <span class="dot" id="dot"></span>
+    <span id="stateLabel">Prêt</span>
+    <span style="color:var(--text-faint)">·</span>
+    <span id="chrono">00:00</span>
+  </div>
+</header>
+
+<div class="msg err"  id="fatalMsg"></div>
+<div class="msg warn" id="micMsg"></div>
+
+<!-- ============ 1. CONTEXTE ============ -->
+<section class="card" id="ctxCard">
+  <button class="card-head" id="ctxToggle" aria-expanded="false" aria-controls="ctxBody">
+    <span>⚙️</span>
+    <span class="ttl">Contexte</span>
+    <span class="badge" id="ctxBadge">à remplir</span>
+    <span class="chev">▶</span>
+  </button>
+  <div class="card-body" data-collapsible id="ctxBody">
+    <label for="domain">Mon domaine / mon rôle
+      <span class="hint">Ex. : « Chef de projet ERP dans l’industrie pharmaceutique »</span>
+    </label>
+    <textarea id="domain" rows="2" placeholder="Votre métier, votre rôle, votre secteur…"></textarea>
+
+    <label for="goal">Objet et objectif de la réunion
+      <span class="hint">Ex. : « Cadrage du lot 2 — obtenir une date de livraison ferme »</span>
+    </label>
+    <textarea id="goal" rows="2" placeholder="De quoi parle-t-on, et qu’est-ce que je veux en sortir ?"></textarea>
+
+    <label for="password">Mot de passe de l’application
+      <span class="hint">Celui défini dans la variable APP_PASSWORD sur Vercel. Stocké sur cet appareil uniquement.</span>
+    </label>
+    <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
+
+    <label for="freq">Fréquence des questions suggérées</label>
+    <select id="freq">
+      <option value="30">Toutes les 30 secondes</option>
+      <option value="60" selected>Toutes les 60 secondes</option>
+      <option value="120">Toutes les 2 minutes</option>
+      <option value="0">Manuel (bouton « Générer »)</option>
+    </select>
+
+    <div style="margin-top:14px" class="btn-row">
+      <button class="btn" id="saveCtx">💾 Enregistrer</button>
+      <button class="btn" id="resetAll">🗑️ Réinitialiser la session</button>
+    </div>
+    <div class="msg info" id="ctxMsg" style="margin:10px 0 0"></div>
+  </div>
+</section>
+
+<!-- ============ 2. QUESTIONS À POSER ============ -->
+<section class="card">
+  <div class="card-head">
+    <span>❓</span>
+    <span class="ttl">Questions à poser</span>
+    <span class="badge" id="qBadge">—</span>
+  </div>
+  <div class="card-body">
+    <div id="questionsOut">
+      <p class="empty">Démarrez l’écoute : 3 questions apparaîtront ici dès que la conversation aura de la matière.</p>
+    </div>
+    <div class="msg err" id="qErr" style="margin:10px 0 0"></div>
+    <button class="btn wide" id="genQ" style="margin-top:10px">✨ Générer 3 questions maintenant</button>
+  </div>
+</section>
+
+<!-- ============ 3. DEMANDER À L'IA ============ -->
+<section class="card">
+  <div class="card-head">
+    <span>💬</span>
+    <span class="ttl">Demander à l’IA</span>
+  </div>
+  <div class="card-body">
+    <textarea id="askInput" rows="2" placeholder="Ex. : « Comment répondre à leur objection sur le délai ? »"></textarea>
+    <button class="btn primary wide" id="askBtn" style="margin-top:9px">Demander</button>
+    <div class="msg err" id="askErr" style="margin:10px 0 0"></div>
+    <div class="out" id="askOut" style="margin-top:10px;display:none"></div>
+  </div>
+</section>
+
+<!-- ============ 4. TRANSCRIPTION ============ -->
+<section class="card">
+  <div class="card-head">
+    <span>📝</span>
+    <span class="ttl">Transcription</span>
+    <span class="badge" id="tBadge">0 segment</span>
+  </div>
+  <div class="card-body">
+    <div id="transcript" aria-live="polite">
+      <p class="empty">La transcription s’affichera ici, horodatée.</p>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn" id="exportT">⬇️ Exporter la transcription</button>
+      <button class="btn" id="copyT">📋 Copier</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. BILAN ============ -->
+<section class="card">
+  <div class="card-head">
+    <span>📊</span>
+    <span class="ttl">Bilan</span>
+  </div>
+  <div class="card-body">
+    <div class="msg err" id="sumErr"></div>
+    <div class="out summary" id="sumOut">
+      <p class="empty">Appuyez sur « Fin + bilan » pour arrêter l’écoute et générer le compte rendu structuré.</p>
+    </div>
+    <button class="btn wide" id="exportS" style="margin-top:10px" disabled>⬇️ Exporter le bilan (.md)</button>
+  </div>
+</section>
+
+<footer>Audio et transcription traités dans ce navigateur · la clé API reste côté serveur</footer>
+
+<!-- ============ BARRE FIXE ============ -->
+<nav class="bar">
+  <button class="btn rec-on" id="toggleBtn">🎙 Démarrer</button>
+  <button class="btn stop" id="endBtn" disabled>■ Fin + bilan</button>
+</nav>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================================
+     Utilitaires
+     ========================================================================= */
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function mmss(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  /* --- localStorage : toujours sous try/catch (mode privé, quota, etc.) --- */
+  const LS_CTX = 'mc.ctx.v1';
+  const LS_SESSION = 'mc.session.v1';
+
+  function lsGet(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function lsSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { return false; }
+  }
+  function lsDel(key) {
+    try { localStorage.removeItem(key); } catch (e) { /* ignoré */ }
+  }
+
+  /* =========================================================================
+     État
+     ========================================================================= */
+  const state = {
+    listening: false,        // écoute active (micro ouvert)
+    started: false,          // la réunion a démarré au moins une fois
+    ended: false,            // « Fin + bilan » a été pressé
+    segments: [],            // [{ t: ms, text: string }]
+    interim: '',
+    elapsedMs: 0,            // temps cumulé d'écoute
+    lastResume: 0,           // timestamp du dernier démarrage/reprise
+    chronoTimer: null,
+    autoTimer: null,
+    wakeLock: null,
+    recognition: null,
+    restartTimer: null,
+    errorStreak: 0,
+    manualStop: false,       // arrêt volontaire -> ne pas redémarrer
+    qLoading: false,
+    qLastLen: -1,            // longueur de transcription lors du dernier appel
+    qLastAt: 0,
+    summaryText: '',
+    supported: false
+  };
+
+  /* =========================================================================
+     Contexte (panneau repliable + persistance)
+     ========================================================================= */
+  const ctxCard = $('ctxCard'), ctxBody = $('ctxBody'), ctxToggle = $('ctxToggle');
+
+  function setCtxOpen(open) {
+    ctxCard.classList.toggle('open', open);
+    ctxToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  ctxToggle.addEventListener('click', () => setCtxOpen(!ctxCard.classList.contains('open')));
+
+  function readCtx() {
+    return {
+      domain: $('domain').value.trim(),
+      goal: $('goal').value.trim(),
+      password: $('password').value,
+      freq: parseInt($('freq').value, 10) || 0
+    };
+  }
+
+  function saveCtx(silent) {
+    const c = readCtx();
+    const ok = lsSet(LS_CTX, c);
+    updateCtxBadge();
+    if (!silent) {
+      showMsg('ctxMsg', ok
+        ? 'Contexte enregistré sur cet appareil.'
+        : 'Enregistrement impossible (stockage du navigateur indisponible). Le contexte reste actif pour cette session.',
+        4000);
+    }
+    return c;
+  }
+
+  function loadCtx() {
+    const c = lsGet(LS_CTX);
+    if (c && typeof c === 'object') {
+      if (c.domain) $('domain').value = c.domain;
+      if (c.goal) $('goal').value = c.goal;
+      if (c.password) $('password').value = c.password;
+      if (c.freq !== undefined && c.freq !== null) $('freq').value = String(c.freq);
+    }
+    updateCtxBadge();
+    // Panneau ouvert d'office tant que le contexte minimal n'est pas rempli.
+    setCtxOpen(!(c && c.domain && c.goal));
+  }
+
+  function updateCtxBadge() {
+    const c = readCtx();
+    const parts = [];
+    if (!c.domain || !c.goal) {
+      $('ctxBadge').textContent = 'à remplir';
+      return;
+    }
+    parts.push(c.freq ? (c.freq >= 60 ? (c.freq / 60) + ' min' : c.freq + ' s') : 'manuel');
+    $('ctxBadge').textContent = parts.join(' · ');
+  }
+
+  ['domain', 'goal', 'password'].forEach((id) => {
+    $(id).addEventListener('change', () => saveCtx(true));
+  });
+  $('freq').addEventListener('change', () => { saveCtx(true); resetAutoCycle(); });
+  $('saveCtx').addEventListener('click', () => saveCtx(false));
+
+  function showMsg(id, text, autoHideMs) {
+    const el = $(id);
+    el.innerHTML = text || '';
+    if (autoHideMs && text) {
+      setTimeout(() => { if (el.innerHTML === text) el.innerHTML = ''; }, autoHideMs);
+    }
+  }
+
+  /* =========================================================================
+     Transcription
+     ========================================================================= */
+  const transcriptEl = $('transcript');
+  let interimEl = null;
+
+  function elapsedNow() {
+    return state.elapsedMs + (state.listening ? Date.now() - state.lastResume : 0);
+  }
+
+  function fullText() {
+    return state.segments.map((s) => '[' + mmss(s.t) + '] ' + s.text).join('\n');
+  }
+
+  function plainText() {
+    return state.segments.map((s) => s.text).join(' ');
+  }
+
+  function nearBottom() {
+    return transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight < 60;
+  }
+
+  function clearPlaceholder() {
+    const ph = transcriptEl.querySelector('.empty');
+    if (ph) ph.remove();
+  }
+
+  function addSegment(text, atMs) {
+    const clean = text.replace(/\s+/g, ' ').trim();
+    if (!clean) return;
+    const seg = { t: atMs !== undefined ? atMs : elapsedNow(), text: clean };
+    state.segments.push(seg);
+    clearPlaceholder();
+    const stick = nearBottom();
+    const p = document.createElement('p');
+    p.innerHTML = '<span class="ts">[' + mmss(seg.t) + ']</span>' + esc(seg.text);
+    transcriptEl.insertBefore(p, interimEl);
+    if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    $('tBadge').textContent = state.segments.length + ' segment' + (state.segments.length > 1 ? 's' : '');
+    persistSession();
+  }
+
+  function setInterim(text) {
+    state.interim = text;
+    if (!interimEl) return;
+    if (text) {
+      const stick = nearBottom();
+      interimEl.textContent = text;
+      interimEl.style.display = '';
+      if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    } else {
+      interimEl.textContent = '';
+      interimEl.style.display = 'none';
+    }
+  }
+
+  function initTranscriptDom() {
+    interimEl = document.createElement('p');
+    interimEl.className = 'interim';
+    interimEl.style.display = 'none';
+    transcriptEl.appendChild(interimEl);
+  }
+
+  function renderAllSegments() {
+    transcriptEl.innerHTML = '';
+    initTranscriptDom();
+    if (!state.segments.length) {
+      const ph = document.createElement('p');
+      ph.className = 'empty';
+      ph.textContent = 'La transcription s’affichera ici, horodatée.';
+      transcriptEl.insertBefore(ph, interimEl);
+      $('tBadge').textContent = '0 segment';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    state.segments.forEach((seg) => {
+      const p = document.createElement('p');
+      p.innerHTML = '<span class="ts">[' + mmss(seg.t) + ']</span>' + esc(seg.text);
+      frag.appendChild(p);
+    });
+    transcriptEl.insertBefore(frag, interimEl);
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    $('tBadge').textContent = state.segments.length + ' segment' + (state.segments.length > 1 ? 's' : '');
+  }
+
+  /* --- Persistance de la session (survit à un rechargement d'onglet) ------ */
+  let persistTimer = null;
+  function persistSession() {
+    if (persistTimer) return;
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      lsSet(LS_SESSION, {
+        segments: state.segments.slice(-4000),
+        elapsedMs: elapsedNow(),
+        summaryText: state.summaryText,
+        savedAt: Date.now()
+      });
+    }, 1200);
+  }
+
+  function restoreSession() {
+    const s = lsGet(LS_SESSION);
+    if (!s || !Array.isArray(s.segments) || !s.segments.length) return false;
+    // On ne restaure qu'une session récente (moins de 8 h).
+    if (s.savedAt && Date.now() - s.savedAt > 8 * 3600 * 1000) { lsDel(LS_SESSION); return false; }
+    state.segments = s.segments;
+    state.elapsedMs = s.elapsedMs || 0;
+    state.summaryText = s.summaryText || '';
+    state.started = true;
+    renderAllSegments();
+    $('chrono').textContent = mmss(state.elapsedMs);
+    $('endBtn').disabled = false;
+    if (state.summaryText) renderSummary(state.summaryText);
+    showMsg('micMsg', '<b>Session précédente restaurée</b> (' + state.segments.length +
+      ' segments). Reprenez l’écoute, ou réinitialisez la session dans « Contexte ».', 12000);
+    return true;
+  }
+
+  /* =========================================================================
+     Reconnaissance vocale (Web Speech API)
+     ========================================================================= */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function checkSupport() {
+    if (!SR) {
+      state.supported = false;
+      showMsg('fatalMsg',
+        '<b>Transcription indisponible sur ce navigateur.</b><br>' +
+        'La reconnaissance vocale du Web n’est pas prise en charge ici. ' +
+        'Ouvrez cette page dans <b>Chrome sur Android</b> ou <b>Safari sur iOS</b> ' +
+        '(Firefox et les navigateurs in-app — Instagram, LinkedIn, Gmail — ne la gèrent pas). ' +
+        'Les autres fonctions restent utilisables.');
+      $('toggleBtn').disabled = true;
+      return false;
+    }
+    if (!window.isSecureContext) {
+      showMsg('fatalMsg',
+        '<b>Connexion non sécurisée.</b> Le micro exige HTTPS. Ouvrez la page en https://');
+      $('toggleBtn').disabled = true;
+      return false;
+    }
+    state.supported = true;
+    return true;
+  }
+
+  function buildRecognition() {
+    const rec = new SR();
+    rec.lang = 'fr-FR';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (event) => {
+      state.errorStreak = 0;
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const text = result[0] ? result[0].transcript : '';
+        if (result.isFinal) addSegment(text);
+        else interim += text;
+      }
+      setInterim(interim.trim());
+    };
+
+    rec.onerror = (event) => {
+      const err = event.error;
+      if (err === 'not-allowed' || err === 'service-not-allowed') {
+        state.manualStop = true;
+        stopListening();
+        showMsg('micMsg',
+          '<b>Accès au micro refusé.</b> Autorisez le microphone pour ce site, ' +
+          'puis appuyez de nouveau sur « Démarrer ».<br>' +
+          'iOS : Réglages → Safari → Microphone. Android : ⓘ dans la barre d’adresse → Autorisations.');
+        return;
+      }
+      if (err === 'no-speech' || err === 'aborted') return; // banal : onend relancera
+      if (err === 'audio-capture') {
+        state.manualStop = true;
+        stopListening();
+        showMsg('micMsg', '<b>Micro introuvable.</b> Vérifiez qu’aucune autre application ne l’utilise.');
+        return;
+      }
+      if (err === 'network') {
+        state.errorStreak++;
+        showMsg('micMsg', 'Coupure réseau du service de reconnaissance vocale — nouvelle tentative…', 6000);
+        return;
+      }
+      state.errorStreak++;
+    };
+
+    // Les navigateurs mobiles coupent l'écoute très régulièrement :
+    // on relance tant que l'utilisateur n'a pas demandé l'arrêt.
+    rec.onend = () => {
+      if (!state.listening || state.manualStop) return;
+      const delay = state.errorStreak > 3 ? Math.min(400 * state.errorStreak, 5000) : 250;
+      clearTimeout(state.restartTimer);
+      state.restartTimer = setTimeout(() => {
+        if (!state.listening || state.manualStop) return;
+        try {
+          rec.start();
+        } catch (e) {
+          // « already started » : on ignore. Sinon on retente une fois plus tard.
+          if (!/already/i.test(e && e.message ? e.message : '')) {
+            clearTimeout(state.restartTimer);
+            state.restartTimer = setTimeout(() => {
+              try { rec.start(); } catch (e2) { /* ignoré */ }
+            }, 1200);
+          }
+        }
+      }, delay);
+    };
+
+    return rec;
+  }
+
+  function startListening() {
+    if (!state.supported) return;
+    showMsg('micMsg', '');
+    state.manualStop = false;
+    state.errorStreak = 0;
+    if (!state.recognition) state.recognition = buildRecognition();
+    try {
+      state.recognition.start();
+    } catch (e) {
+      if (!/already/i.test(e && e.message ? e.message : '')) {
+        showMsg('micMsg', 'Démarrage du micro impossible : ' + esc(e && e.message ? e.message : 'erreur inconnue'));
+        return;
+      }
+    }
+    state.listening = true;
+    state.started = true;
+    state.ended = false;
+    state.lastResume = Date.now();
+    startChrono();
+    requestWakeLock();
+    resetAutoCycle();
+    $('endBtn').disabled = false;
+    updateUi();
+  }
+
+  function stopListening() {
+    if (state.listening) {
+      state.elapsedMs = elapsedNow();
+      state.listening = false;
+    }
+    state.manualStop = true;
+    clearTimeout(state.restartTimer);
+    if (state.recognition) {
+      try { state.recognition.stop(); } catch (e) { /* ignoré */ }
+    }
+    setInterim('');
+    stopChrono();
+    releaseWakeLock();
+    stopAutoCycle();
+    persistSession();
+    updateUi();
+  }
+
+  /* =========================================================================
+     Chrono, Wake Lock
+     ========================================================================= */
+  function startChrono() {
+    clearInterval(state.chronoTimer);
+    const tick = () => { $('chrono').textContent = mmss(elapsedNow()); };
+    tick();
+    state.chronoTimer = setInterval(tick, 1000);
+  }
+  function stopChrono() {
+    clearInterval(state.chronoTimer);
+    $('chrono').textContent = mmss(elapsedNow());
+  }
+
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      state.wakeLock = await navigator.wakeLock.request('screen');
+      state.wakeLock.addEventListener('release', () => { state.wakeLock = null; });
+    } catch (e) { state.wakeLock = null; }
+  }
+  function releaseWakeLock() {
+    if (state.wakeLock) {
+      try { state.wakeLock.release(); } catch (e) { /* ignoré */ }
+      state.wakeLock = null;
+    }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.listening) {
+      requestWakeLock();
+      // Le navigateur a pu suspendre la reconnaissance en arrière-plan.
+      if (state.recognition && !state.manualStop) {
+        try { state.recognition.start(); } catch (e) { /* déjà active */ }
+      }
+    }
+  });
+
+  /* =========================================================================
+     Interface : état des boutons
+     ========================================================================= */
+  function updateUi() {
+    const dot = $('dot'), label = $('stateLabel'), toggle = $('toggleBtn');
+    dot.className = 'dot' + (state.listening ? ' rec' : (state.started && !state.ended ? ' paused' : ''));
+    if (state.listening) {
+      label.textContent = 'Écoute';
+      toggle.textContent = '⏸ Pause';
+      toggle.className = 'btn rec-off';
+    } else {
+      label.textContent = state.ended ? 'Terminé' : (state.started ? 'En pause' : 'Prêt');
+      toggle.textContent = state.started ? '🎙 Reprendre' : '🎙 Démarrer';
+      toggle.className = 'btn rec-on';
+    }
+  }
+
+  $('toggleBtn').addEventListener('click', () => {
+    saveCtx(true);
+    if (state.listening) stopListening();
+    else startListening();
+  });
+
+  /* =========================================================================
+     Appels à la fonction serverless
+     ========================================================================= */
+  async function callApi(payload) {
+    const c = readCtx();
+    const headers = { 'Content-Type': 'application/json' };
+    if (c.password) headers['x-app-password'] = c.password;
+
+    let res;
+    try {
+      res = await fetch('/api/claude', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(Object.assign({ domain: c.domain, goal: c.goal }, payload))
+      });
+    } catch (e) {
+      throw new Error('Serveur injoignable — vérifiez votre connexion internet.');
+    }
+
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* réponse non JSON */ }
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        setCtxOpen(true);
+        throw new Error('Mot de passe incorrect ou manquant — renseignez-le dans « Contexte ».');
+      }
+      throw new Error((data && data.error) || ('Erreur serveur ' + res.status + '.'));
+    }
+    if (!data || !data.text) throw new Error('Réponse vide du serveur.');
+    return data.text;
+  }
+
+  function setLoading(btn, loading, label) {
+    btn.disabled = loading;
+    if (loading) {
+      btn.dataset.label = btn.innerHTML;
+      btn.innerHTML = '<span class="spin"></span> ' + label;
+    } else if (btn.dataset.label) {
+      btn.innerHTML = btn.dataset.label;
+      delete btn.dataset.label;
+    }
+  }
+
+  /* ---------------------- Questions suggérées ---------------------------- */
+  function parseQuestions(text) {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const numbered = lines
+      .filter((l) => /^\d+[.)]\s+/.test(l))
+      .map((l) => l.replace(/^\d+[.)]\s+/, '').trim());
+    const list = numbered.length ? numbered : lines.filter((l) => l.length > 8);
+    return list.slice(0, 3);
+  }
+
+  function renderQuestions(text) {
+    const items = parseQuestions(text);
+    if (!items.length) {
+      $('questionsOut').innerHTML = '<div class="out">' + esc(text) + '</div>';
+      return;
+    }
+    $('questionsOut').innerHTML =
+      '<ol class="questions">' + items.map((q) => '<li>' + esc(q) + '</li>').join('') + '</ol>';
+    $('qBadge').textContent = mmss(elapsedNow());
+  }
+
+  async function generateQuestions(manual) {
+    if (state.qLoading) return;
+    const text = fullText();
+    if (plainText().trim().length < 40) {
+      if (manual) showMsg('qErr', 'Transcription encore trop courte — laissez la conversation démarrer.', 5000);
+      return;
+    }
+    state.qLoading = true;
+    showMsg('qErr', '');
+    setLoading($('genQ'), true, 'Génération…');
+    try {
+      const out = await callApi({ mode: 'questions', transcript: text });
+      renderQuestions(out);
+      state.qLastLen = text.length;
+      state.qLastAt = Date.now();
+    } catch (e) {
+      showMsg('qErr', esc(e.message));
+      // En mode automatique, on temporise pour ne pas marteler un endpoint en erreur.
+      state.qLastAt = Date.now();
+      state.qLastLen = text.length;
+    } finally {
+      state.qLoading = false;
+      setLoading($('genQ'), false);
+    }
+  }
+
+  $('genQ').addEventListener('click', () => generateQuestions(true));
+
+  /* --- Boucle automatique : jamais d'appel si rien de neuf n'a été dit --- */
+  function autoTick() {
+    const c = readCtx();
+    if (!c.freq || !state.listening || state.qLoading) return;
+    if (Date.now() - state.qLastAt < c.freq * 1000) return;
+    const text = fullText();
+    if (text.length <= state.qLastLen) return; // la transcription n'a pas avancé
+    generateQuestions(false);
+  }
+
+  function resetAutoCycle() {
+    stopAutoCycle();
+    const c = readCtx();
+    if (c.freq && state.listening) {
+      state.qLastAt = Date.now();
+      state.autoTimer = setInterval(autoTick, 2000);
+    }
+  }
+  function stopAutoCycle() {
+    clearInterval(state.autoTimer);
+    state.autoTimer = null;
+  }
+
+  /* ---------------------------- Demander à l'IA -------------------------- */
+  function renderAnswer(text) {
+    const lines = text.split('\n');
+    const html = lines.map((line) => {
+      if (/^\s*[«"]?\s*À vérifier\s*:/i.test(line) || /^\s*A vérifier\s*:/i.test(line)) {
+        return '<span class="verify">' + esc(line.trim()) + '</span>';
+      }
+      return esc(line);
+    }).join('\n');
+    const out = $('askOut');
+    out.innerHTML = html;
+    out.style.display = '';
+  }
+
+  async function ask() {
+    const q = $('askInput').value.trim();
+    showMsg('askErr', '');
+    if (!q) { showMsg('askErr', 'Écrivez d’abord votre question.', 4000); return; }
+    setLoading($('askBtn'), true, 'Réflexion…');
+    try {
+      const out = await callApi({ mode: 'answer', question: q, transcript: fullText() });
+      renderAnswer(out);
+    } catch (e) {
+      showMsg('askErr', esc(e.message));
+    } finally {
+      setLoading($('askBtn'), false);
+    }
+  }
+  $('askBtn').addEventListener('click', ask);
+  $('askInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); ask(); }
+  });
+
+  /* ------------------------------- Bilan --------------------------------- */
+  const HEADINGS = [
+    'ÉTAPE ACTUELLE', 'ETAPE ACTUELLE',
+    'DÉCISIONS', 'DECISIONS',
+    'ACTIONS',
+    'POINTS OUVERTS & RISQUES', 'POINTS OUVERTS ET RISQUES',
+    'PROCHAINE ÉTAPE RECOMMANDÉE', 'PROCHAINE ETAPE RECOMMANDEE'
+  ];
+
+  function renderSummary(text) {
+    const html = text.split('\n').map((line) => {
+      const t = line.trim().replace(/^#+\s*/, '').replace(/\*\*/g, '').replace(/\s*:$/, '');
+      if (HEADINGS.indexOf(t.toUpperCase()) !== -1) return '<h4>' + esc(t.toUpperCase()) + '</h4>';
+      return esc(line);
+    }).join('\n');
+    $('sumOut').innerHTML = html;
+    $('exportS').disabled = false;
+  }
+
+  async function endAndSummarize() {
+    saveCtx(true);
+    stopListening();
+    state.ended = true;
+    updateUi();
+
+    showMsg('sumErr', '');
+    if (plainText().trim().length < 40) {
+      showMsg('sumErr', 'Transcription trop courte pour produire un bilan fiable.');
+      return;
+    }
+    setLoading($('endBtn'), true, 'Bilan…');
+    $('sumOut').innerHTML = '<p class="empty">Génération du bilan en cours…</p>';
+    try {
+      const out = await callApi({ mode: 'summary', transcript: fullText() });
+      state.summaryText = out;
+      renderSummary(out);
+      persistSession();
+      $('sumOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      showMsg('sumErr', esc(e.message));
+      $('sumOut').innerHTML = '<p class="empty">Bilan non généré. Corrigez l’erreur ci-dessus puis réessayez.</p>';
+    } finally {
+      setLoading($('endBtn'), false);
+      $('endBtn').disabled = false;
+    }
+  }
+  $('endBtn').addEventListener('click', endAndSummarize);
+
+  /* =========================================================================
+     Exports .md
+     ========================================================================= */
+  function stamp() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+           '-' + p(d.getHours()) + p(d.getMinutes());
+  }
+
+  function mdHeader(title) {
+    const c = readCtx();
+    return [
+      '# ' + title,
+      '',
+      '- **Date** : ' + new Date().toLocaleString('fr-FR'),
+      '- **Durée d’écoute** : ' + mmss(elapsedNow()),
+      '- **Domaine / rôle** : ' + (c.domain || 'non précisé'),
+      '- **Objet et objectif** : ' + (c.goal || 'non précisé'),
+      '',
+      '---',
+      ''
+    ].join('\n');
+  }
+
+  function download(filename, content) {
+    try {
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      alert('Téléchargement impossible sur ce navigateur. Utilisez « Copier ».');
+    }
+  }
+
+  $('exportT').addEventListener('click', () => {
+    if (!state.segments.length) { alert('Aucune transcription à exporter.'); return; }
+    download('meeting-copilot-transcription-' + stamp() + '.md',
+      mdHeader('Transcription de réunion') + fullText() + '\n');
+  });
+
+  $('copyT').addEventListener('click', async () => {
+    const text = mdHeader('Transcription de réunion') + fullText() + '\n';
+    try {
+      await navigator.clipboard.writeText(text);
+      $('copyT').textContent = '✅ Copié';
+      setTimeout(() => { $('copyT').textContent = '📋 Copier'; }, 1800);
+    } catch (e) {
+      alert('Copie impossible — utilisez l’export .md.');
+    }
+  });
+
+  $('exportS').addEventListener('click', () => {
+    if (!state.summaryText) return;
+    download('meeting-copilot-bilan-' + stamp() + '.md',
+      mdHeader('Bilan de réunion') + state.summaryText + '\n\n---\n\n## Transcription complète\n\n' + fullText() + '\n');
+  });
+
+  /* =========================================================================
+     Réinitialisation
+     ========================================================================= */
+  $('resetAll').addEventListener('click', () => {
+    if (!confirm('Effacer la transcription, les questions et le bilan de cette session ?\nLe contexte et le mot de passe sont conservés.')) return;
+    stopListening();
+    state.segments = [];
+    state.summaryText = '';
+    state.elapsedMs = 0;
+    state.started = false;
+    state.ended = false;
+    state.qLastLen = -1;
+    state.qLastAt = 0;
+    lsDel(LS_SESSION);
+    renderAllSegments();
+    setInterim('');
+    $('chrono').textContent = '00:00';
+    $('questionsOut').innerHTML = '<p class="empty">Démarrez l’écoute : 3 questions apparaîtront ici dès que la conversation aura de la matière.</p>';
+    $('qBadge').textContent = '—';
+    $('sumOut').innerHTML = '<p class="empty">Appuyez sur « Fin + bilan » pour arrêter l’écoute et générer le compte rendu structuré.</p>';
+    $('exportS').disabled = true;
+    $('askOut').style.display = 'none';
+    $('endBtn').disabled = true;
+    ['qErr', 'askErr', 'sumErr', 'micMsg'].forEach((id) => showMsg(id, ''));
+    updateUi();
+  });
+
+  window.addEventListener('beforeunload', (e) => {
+    if (state.listening || (state.segments.length && !state.summaryText)) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  /* =========================================================================
+     Démarrage
+     ========================================================================= */
+  initTranscriptDom();
+  loadCtx();
+  restoreSession();
+  checkSupport();
+  updateUi();
+})();
+</script>
+</body>
+</html>
