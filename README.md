@@ -1,74 +1,65 @@
 # 🎙️ Meeting Copilot
 
-Copilote IA de réunion, pensé pour être ouvert **sur un téléphone posé à côté du PC** pendant une
-visioconférence. Le téléphone écoute le son de la réunion, transcrit en direct, suggère des questions
-à poser, répond aux questions posées en cours de route, et produit un bilan structuré à la fin.
+Copilote de réunion, à ouvrir **sur le téléphone posé à côté du PC** pendant une visioconférence.
+Il écoute, propose en continu les questions à poser à ton interlocuteur, et produit le bilan complet
+à la fin.
+
+Un écran, trois gestes : **Écouter** → lire les questions → **Terminer la réunion**.
 
 Aucune dépendance, aucun build : un `index.html` statique + une fonction serverless Vercel.
 
 ---
 
-## Fonctionnalités
+## L'écran
 
 | | |
 |---|---|
-| **Transcription en direct** | Web Speech API du navigateur (`fr-FR`, continu, résultats intermédiaires), avec redémarrage automatique quand le navigateur coupe l'écoute — fréquent sur mobile. Chaque segment est horodaté `[mm:ss]`. |
-| **Questions suggérées** | Exactement 3 questions précises à poser maintenant, toutes les 30 s / 60 s / 2 min, ou à la demande. Ciblent en priorité les zones floues, les risques, les dépendances, les décisions non tranchées et les délais ou chiffres manquants. Aucun appel n'est émis si la transcription n'a pas avancé. |
-| **Demander à l'IA** | Une réponse prête à dire à l'oral (2 à 4 phrases), suivie si nécessaire d'une ligne « À vérifier : ». |
-| **Fin + bilan** | Arrête l'écoute et génère : ÉTAPE ACTUELLE / DÉCISIONS / ACTIONS (qui → quoi → échéance) / POINTS OUVERTS & RISQUES / PROCHAINE ÉTAPE RECOMMANDÉE. Rien n'est inventé : « non précisé » quand l'information manque. |
-| **Export `.md`** | Bilan et transcription complète, en Markdown. |
-| **Contexte** | Domaine/rôle, objet et objectif de la réunion, mot de passe, fréquence des questions — sauvegardés en `localStorage`. |
-| **Confort** | Point rouge clignotant, chronomètre, Wake Lock (écran maintenu allumé), messages explicites si le navigateur est incompatible ou si le micro est refusé. La session survit à un rechargement d'onglet. |
+| **Sujet de la réunion** | Un champ, optionnel, en haut. Sert de contexte à l'IA. Mémorisé. |
+| **Gros bouton rond** | 🎙 Écouter / ⏸ Pause. À côté : point rouge clignotant et chronomètre. |
+| **Questions à poser** | Les 3 plus récentes en grosse police, lisibles d'un coup d'œil. Les précédentes descendent en gris dans un historique repliable. **Un tap barre une question** une fois posée. Le bouton ↻ force de nouvelles questions. |
+| **Voir la transcription** | Bloc replié par défaut. |
+| **Terminer la réunion** | Bouton fixe en bas : arrête l'écoute et affiche le bilan en plein écran. |
 
----
+Le mot de passe est demandé **une seule fois**, au premier lancement, dans une petite fenêtre.
+Il n'apparaît jamais sur l'écran principal. S'il est refusé (401), il est redemandé.
 
-## Utilisation
+## Les questions
 
-1. Ouvrir l'URL de production dans **Chrome (Android)** ou **Safari (iOS)**.
-2. L'ajouter à l'écran d'accueil (Partager → « Sur l'écran d'accueil ») pour un lancement plein écran.
-3. Ouvrir **Contexte** et renseigner :
-   - le domaine / rôle — plus c'est précis, plus les questions sont pertinentes ;
-   - l'objet et l'objectif de la réunion ;
-   - le mot de passe de l'application (`APP_PASSWORD`) ;
-   - la fréquence des questions.
-4. Poser le téléphone à côté du PC, **son de la visio sur les haut-parleurs du PC** (pas de casque —
-   sinon le micro du téléphone n'entend que vous).
-5. Appuyer sur **🎙 Démarrer**, autoriser le micro.
-6. En fin de réunion : **■ Fin + bilan**, puis exporter en `.md`.
+Générées **automatiquement toutes les ~45 secondes**, et seulement si **au moins ~150 nouveaux
+caractères** ont été transcrits depuis la dernière fois — pas de conversation, pas d'appel.
+
+L'IA propose 3 questions courtes et naturelles, à poser maintenant, en rebondissant sur ce qui vient
+d'être dit. Dans l'ordre de priorité : clarifier les zones floues, obtenir des chiffres, délais,
+budget et responsables, faire émerger les risques et les dépendances, faire avancer vers une décision.
+
+Les questions déjà proposées et celles déjà posées sont renvoyées au backend à chaque appel, pour
+éviter les doublons.
+
+## Le bilan
+
+Au clic sur **Terminer la réunion** — sept sections, rien d'inventé, « non précisé » quand
+l'information manque :
+
+`RÉSUMÉ` · `POINTS CLÉS & INFORMATIONS OBTENUES` · `DÉCISIONS PRISES` ·
+`ACTIONS À FAIRE` (qui → quoi → échéance) · `QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS` ·
+`OÙ ON EN EST` · `PROCHAINE ÉTAPE RECOMMANDÉE`
+
+Puis **📋 Copier**, **⬇ Télécharger .md** (bilan + questions posées + transcription complète)
+et **Nouvelle réunion**.
+
+## Ne rien perdre
+
+Transcription et questions sont écrites dans le `localStorage` pendant l'écoute. Si la page se
+recharge ou si l'écran se verrouille, l'app propose au lancement suivant de **reprendre la réunion**.
+Le Wake Lock garde l'écran allumé, et la reconnaissance vocale redémarre toute seule quand le
+navigateur la coupe — ce qui arrive souvent sur mobile.
 
 ---
 
 ## Déploiement
 
-### Prérequis
-
-```bash
-npm i -g vercel      # CLI Vercel
-vercel login         # authentification
-```
-
-### Mise en production
-
-Le plus simple, sans terminal : importer le repo sur **[vercel.com/new](https://vercel.com/new)**,
-ajouter les deux variables d'environnement, redéployer.
-**Marche à suivre complète : [DEPLOIEMENT.md](DEPLOIEMENT.md).**
-
-En ligne de commande :
-
-```bash
-git clone https://github.com/Aminebhn13/meeting.git meeting-copilot
-cd meeting-copilot
-vercel --prod
-```
-
-### Variables d'environnement (production)
-
-```bash
-vercel env add ANTHROPIC_API_KEY production   # clé API Anthropic — côté serveur uniquement
-vercel env add APP_PASSWORD production        # mot de passe d'accès à l'app
-vercel env add CLAUDE_MODEL production        # optionnel, défaut : claude-sonnet-5
-vercel --prod                                 # redéployer pour appliquer
-```
+Import du repo sur **[vercel.com/new](https://vercel.com/new)**, puis deux variables
+d'environnement, puis un redéploiement. **Marche à suivre détaillée : [DEPLOIEMENT.md](DEPLOIEMENT.md).**
 
 | Variable | Requis | Défaut | Rôle |
 |---|---|---|---|
@@ -76,29 +67,7 @@ vercel --prod                                 # redéployer pour appliquer
 | `APP_PASSWORD` | recommandé | — | Si défini, le header `x-app-password` est exigé ; sinon `401`. |
 | `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle utilisé. |
 
-### Vérification
-
-Le plus simple : bouton **🔌 Tester la connexion** dans le panneau Contexte de l'app.
-Il fait un vrai appel et nomme précisément ce qui ne va pas (mot de passe, clé absente,
-modèle inexistant, fonction non déployée…).
-
-En ligne de commande :
-
-```bash
-# Sans mot de passe -> 401
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://<domaine>/api/claude \
-  -H 'content-type: application/json' \
-  -d '{"mode":"questions","transcript":"test"}'
-
-# Avec mot de passe -> 200
-curl -s -X POST https://<domaine>/api/claude \
-  -H 'content-type: application/json' \
-  -H 'x-app-password: <APP_PASSWORD>' \
-  -d '{"mode":"questions","domain":"Chef de projet ERP","goal":"Cadrage du lot 2",
-       "transcript":"[00:05] On vise une livraison au printemps. [00:20] Le budget reste à confirmer."}'
-```
-
----
+> Les variables ne s'appliquent qu'après un **redéploiement**.
 
 ## API interne
 
@@ -106,46 +75,48 @@ curl -s -X POST https://<domaine>/api/claude \
 
 ```jsonc
 {
-  "mode": "questions" | "answer" | "summary",
-  "domain": "…",      // domaine / rôle
-  "goal": "…",        // objet et objectif de la réunion
-  "transcript": "…",  // transcription horodatée (60 000 derniers caractères conservés)
-  "question": "…"     // requis pour mode "answer"
+  "mode": "questions" | "summary",
+  "topic": "…",        // sujet de la réunion, optionnel
+  "transcript": "…",   // horodatée ; 60 000 derniers caractères conservés
+  "proposed": ["…"],   // questions déjà proposées (mode questions)
+  "asked": ["…"]       // questions déjà posées à voix haute
 }
 ```
 
-Réponse : `{ "text": "…" }`, ou `{ "error": "…" }` avec un message explicite.
-`max_tokens` : 1500 pour `summary`, 500 sinon.
+Réponse : `{ "text": "…" }` ou `{ "error": "…" }`.
+`max_tokens` : **3000** pour `summary`, **500** pour `questions`.
+
+Le prompt système précise que la transcription vient d'une reconnaissance vocale imparfaite, sans
+distinction des orateurs, et impose des réponses en français, concises, sans préambule.
 
 ---
 
 ## Limites connues
 
-- **Web Speech API uniquement** : fonctionne sur Chrome (Android, desktop) et Safari (iOS 14.5+).
-  Firefox et les navigateurs intégrés aux applications (Instagram, LinkedIn, Gmail…) ne la gèrent pas —
-  un message explicite s'affiche alors.
-- **Qualité de la transcription** : dépend du micro, du bruit ambiant et du volume des haut-parleurs.
-  Les orateurs ne sont **pas** distingués ; les prompts en tiennent compte.
+- **Web Speech API** : Chrome (Android, desktop) et Safari (iOS 14.5+). Firefox et les navigateurs
+  intégrés aux applications (Instagram, LinkedIn, Gmail) ne la gèrent pas — un message explicite
+  s'affiche.
+- **Qualité de la transcription** : dépend du micro, du bruit et du volume des haut-parleurs. Les
+  orateurs ne sont **pas** distingués ; les prompts en tiennent compte.
 - **Coupures** : les navigateurs mobiles arrêtent la reconnaissance régulièrement. L'app redémarre
   automatiquement, mais quelques mots peuvent se perdre à la jonction.
-- **Arrière-plan** : si le téléphone est verrouillé ou l'app quittée, le navigateur suspend le micro.
-  Garder l'écran allumé — le Wake Lock s'en charge quand il est disponible.
-- **Horodatage** : relatif au temps d'écoute cumulé, pas à l'heure réelle de la réunion.
-- Chrome envoie l'audio à un service de reconnaissance Google ; Safari utilise la reconnaissance Apple.
+- **Arrière-plan** : écran verrouillé ou app quittée, le navigateur suspend le micro. Garder l'écran
+  allumé — le Wake Lock s'en charge quand il est disponible.
+- **Horodatage** : relatif au temps d'écoute cumulé, pas à l'heure réelle.
+- Chrome envoie l'audio à un service de reconnaissance Google ; Safari à celui d'Apple.
 
 ## Confidentialité
 
 - L'audio n'est **jamais** stocké ni transmis par cette application : il est traité par le moteur de
   reconnaissance vocale du navigateur.
-- La transcription ne quitte le téléphone que lors d'un appel à `/api/claude` (questions, réponse ou
-  bilan) — envoyée à l'API Anthropic pour cet appel seulement, jamais persistée côté serveur.
-- Contexte, transcription et bilan sont conservés dans le `localStorage` du téléphone, et effaçables
-  via « Réinitialiser la session ».
-- `ANTHROPIC_API_KEY` reste exclusivement côté serveur. Le mot de passe applicatif est stocké dans le
-  `localStorage` du téléphone pour éviter de le retaper : c'est un garde-barrière contre l'usage de
-  votre quota API, pas un système d'authentification.
-- **Prévenez vos interlocuteurs** : enregistrer ou transcrire une réunion sans le dire est, selon les
-  juridictions et les contextes, discutable — voire illégal.
+- La transcription ne quitte le téléphone que lors d'un appel à `/api/claude` — envoyée à l'API
+  Anthropic pour cet appel seulement, jamais persistée côté serveur.
+- Sujet, transcription, questions et bilan restent dans le `localStorage` du téléphone, effaçables
+  via « Nouvelle réunion ».
+- `ANTHROPIC_API_KEY` reste exclusivement côté serveur. Le mot de passe applicatif est un
+  garde-barrière contre l'usage de ton quota API, pas un système d'authentification.
+- **Préviens tes interlocuteurs** : transcrire une réunion sans le dire est, selon les juridictions
+  et les contextes, discutable — voire illégal.
 
 ## Licence
 

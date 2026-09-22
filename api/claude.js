@@ -1,8 +1,11 @@
 // api/claude.js — Vercel Serverless Function (Node 18+, ESM, fetch natif)
 //
 // Contrat d'entrée (POST, JSON) :
-//   { mode: "questions" | "answer" | "summary",
-//     domain?: string, goal?: string, transcript?: string, question?: string }
+//   { mode: "questions" | "summary",
+//     topic?: string,        // sujet de la réunion (optionnel)
+//     transcript?: string,
+//     proposed?: string[],   // questions déjà proposées — à ne pas répéter
+//     asked?: string[] }     // questions déjà posées à voix haute
 //
 // Contrat de sortie :
 //   200 -> { text: string }
@@ -14,25 +17,25 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_MODEL = 'claude-sonnet-5';
 
-// On ne garde que la fin de la transcription : c'est la partie la plus utile
-// et cela borne le coût / la latence sur les réunions longues.
+const MODES = ['questions', 'summary'];
 const MAX_TRANSCRIPT_CHARS = 60000;
+const MAX_LIST_ITEMS = 60;
 
 const SYSTEM_PROMPT = [
-  "Tu es un copilote de réunion. Tu assistes en direct une personne qui participe à une visioconférence.",
+  "Tu es le copilote d'une personne en pleine visioconférence. Tu l'aides à mener la conversation",
+  "face à son interlocuteur, en direct.",
   "",
   "La transcription qui t'est fournie provient d'une reconnaissance vocale automatique imparfaite :",
-  "elle contient des erreurs de mots, des coupures, de la ponctuation approximative, et elle ne distingue",
-  "pas les orateurs. Ne relève jamais ces défauts, ne commente pas la qualité de la transcription :",
-  "interprète-la au mieux et raisonne sur le fond.",
+  "erreurs de mots, coupures, ponctuation approximative, et aucune distinction entre les orateurs.",
+  "Ne commente jamais ces défauts : interprète au mieux et raisonne sur le fond.",
   "",
   "Règles de réponse, sans exception :",
   "- Réponds toujours en français.",
-  "- Sois concis et directement exploitable à l'oral.",
+  "- Sois concis et directement exploitable.",
   "- Aucun préambule, aucune formule de politesse, aucune méta-phrase du type « Voici » ou « Bien sûr ».",
-  "- N'invente jamais un fait, un chiffre, un nom ou une date qui n'est pas dans la transcription",
-  "  ou dans le contexte fourni. Si une information manque, écris « non précisé ».",
-  "- Respecte strictement le format demandé dans le message de l'utilisateur."
+  "- N'invente jamais un fait, un chiffre, un nom ou une date absent de la transcription.",
+  "  Si une information manque, écris « non précisé ».",
+  "- Respecte strictement le format demandé."
 ].join('\n');
 
 function clampTranscript(transcript) {
@@ -41,97 +44,107 @@ function clampTranscript(transcript) {
   return '[...début de la réunion tronqué...]\n' + t.slice(-MAX_TRANSCRIPT_CHARS);
 }
 
-function contextBlock(domain, goal) {
-  const d = (domain || '').trim() || 'non précisé';
-  const g = (goal || '').trim() || 'non précisé';
-  return `Domaine et rôle de l'utilisateur : ${d}\nObjet et objectif de la réunion : ${g}`;
+function cleanList(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+    .slice(-MAX_LIST_ITEMS);
+}
+
+function topicBlock(topic) {
+  const t = (topic || '').trim();
+  return t ? `Sujet de la réunion : ${t}` : 'Sujet de la réunion : non précisé';
 }
 
 function transcriptBlock(transcript) {
   const t = clampTranscript(transcript);
-  if (!t) {
-    return "Transcription : (vide pour l'instant — la réunion vient de commencer)";
-  }
+  if (!t) return "Transcription : (vide — la réunion vient de commencer)";
   return `Transcription (horodatée [mm:ss], reconnaissance vocale, orateurs non distingués) :\n"""\n${t}\n"""`;
 }
 
-function buildUserPrompt({ mode, domain, goal, transcript, question }) {
-  const ctx = contextBlock(domain, goal);
-  const tr = transcriptBlock(transcript);
+function buildQuestionsPrompt({ topic, transcript, proposed, asked }) {
+  const parts = [topicBlock(topic), '', transcriptBlock(transcript), ''];
 
-  if (mode === 'questions') {
-    return [
-      ctx,
-      '',
-      tr,
-      '',
-      "Propose EXACTEMENT 3 questions que l'utilisateur peut poser maintenant, à voix haute, dans cette réunion.",
-      '',
-      'Critères impératifs :',
-      "- Chaque question doit être spécifique au domaine de l'utilisateur et à l'objectif de la réunion,",
-      '  et s\'appuyer sur ce qui vient réellement d\'être dit.',
-      '- Vise en priorité : les zones floues, les risques, les dépendances, les décisions non tranchées,',
-      '  les délais manquants et les chiffres manquants.',
-      '- Pas de question générique ni de question déjà répondue dans la transcription.',
-      '- Une seule phrase par question, formulée telle qu\'elle sera prononcée.',
-      '',
-      'Format de sortie, rien d\'autre :',
-      '1. <question>',
-      '2. <question>',
-      '3. <question>'
-    ].join('\n');
+  const prev = cleanList(proposed);
+  if (prev.length) {
+    parts.push(
+      'Questions DÉJÀ PROPOSÉES — ne les répète pas, et ne propose pas de simples reformulations :',
+      prev.map((q) => '- ' + q).join('\n'),
+      ''
+    );
+  }
+  const done = cleanList(asked);
+  if (done.length) {
+    parts.push(
+      'Questions DÉJÀ POSÉES à voix haute — le sujet est couvert, passe à autre chose :',
+      done.map((q) => '- ' + q).join('\n'),
+      ''
+    );
   }
 
-  if (mode === 'answer') {
-    const q = (question || '').trim();
-    return [
-      ctx,
-      '',
-      tr,
-      '',
-      `Question de l'utilisateur : ${q || 'non précisé'}`,
-      '',
-      "Réponds de manière prête à être dite à l'oral, en 2 à 4 phrases maximum.",
-      "Appuie-toi sur la transcription et le contexte quand c'est possible.",
-      '',
-      "Si — et seulement si — ta réponse repose sur une hypothèse, une information absente de la transcription",
-      "ou un point que l'utilisateur devrait confirmer, ajoute à la fin une unique ligne commençant par",
-      '« À vérifier : » suivie de ce point, en une phrase.',
-      '',
-      "N'ajoute aucun titre, aucune liste, aucun préambule."
-    ].join('\n');
+  parts.push(
+    "Propose 3 questions courtes et naturelles que je peux poser MAINTENANT à mon interlocuteur,",
+    "en rebondissant sur ce qui vient d'être dit.",
+    '',
+    'Priorités, dans cet ordre :',
+    '1. Clarifier les zones floues.',
+    '2. Obtenir des chiffres, des délais, un budget, des responsables nommés.',
+    '3. Faire émerger les risques et les dépendances.',
+    '4. Faire avancer vers une décision.',
+    '',
+    'Contraintes :',
+    "- Formulation parlée, telle que je la prononcerai. Une phrase, courte.",
+    '- Ancrée dans ce qui vient réellement d’être dit. Aucune question générique.',
+    '- Aucune question déjà répondue dans la transcription.',
+    '',
+    'Format : une question par ligne, exactement 3 lignes.',
+    'Pas de numérotation, pas de tiret, pas de titre, rien d’autre.'
+  );
+  return parts.join('\n');
+}
+
+function buildSummaryPrompt({ topic, transcript, asked }) {
+  const parts = [topicBlock(topic), '', transcriptBlock(transcript), ''];
+
+  const done = cleanList(asked);
+  if (done.length) {
+    parts.push(
+      'Questions que j’ai posées pendant la réunion :',
+      done.map((q) => '- ' + q).join('\n'),
+      ''
+    );
   }
 
-  if (mode === 'summary') {
-    return [
-      ctx,
-      '',
-      tr,
-      '',
-      'Rédige le bilan de cette réunion en suivant EXACTEMENT la structure ci-dessous, titres inclus,',
-      'sans rien ajouter avant ni après.',
-      '',
-      "N'invente rien. Si une information n'apparaît pas dans la transcription, écris « non précisé ».",
-      "Si une section entière est vide, écris « non précisé » en dessous du titre.",
-      '',
-      'ÉTAPE ACTUELLE',
-      "<1 à 2 phrases : où en est le sujet à la fin de cette réunion>",
-      '',
-      'DÉCISIONS',
-      '- <décision réellement actée, une par ligne>',
-      '',
-      'ACTIONS',
-      '- <qui> → <quoi> → <échéance>',
-      '',
-      'POINTS OUVERTS & RISQUES',
-      '- <point non tranché, risque, dépendance, question en suspens>',
-      '',
-      'PROCHAINE ÉTAPE RECOMMANDÉE',
-      '<1 à 3 phrases : la prochaine action la plus utile, et pourquoi>'
-    ].join('\n');
-  }
-
-  return null;
+  parts.push(
+    'Rédige le bilan complet de cette réunion en suivant EXACTEMENT la structure ci-dessous,',
+    'titres inclus, en majuscules, sans rien ajouter avant ni après.',
+    '',
+    "N'invente rien. Si une information n'apparaît pas dans la transcription, écris « non précisé ».",
+    'Si une section entière est vide, écris « non précisé » sous son titre.',
+    '',
+    'RÉSUMÉ',
+    "<ce qui s'est dit, dans l'ordre chronologique, en paragraphes courts>",
+    '',
+    'POINTS CLÉS & INFORMATIONS OBTENUES',
+    '- <chiffres, dates, noms, contraintes — un par ligne>',
+    '',
+    'DÉCISIONS PRISES',
+    '- <décision réellement actée>',
+    '',
+    'ACTIONS À FAIRE',
+    '- <qui> → <quoi> → <échéance>',
+    '',
+    'QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS',
+    '- <question soulevée sans réponse, sujet non tranché, dépendance, risque>',
+    '',
+    'OÙ ON EN EST',
+    "<l'étape actuelle, en une seule phrase>",
+    '',
+    'PROCHAINE ÉTAPE RECOMMANDÉE',
+    '<1 à 3 phrases : la prochaine action la plus utile, et pourquoi>'
+  );
+  return parts.join('\n');
 }
 
 function sendJson(res, status, payload) {
@@ -140,7 +153,6 @@ function sendJson(res, status, payload) {
 }
 
 async function readJsonBody(req) {
-  // Vercel parse déjà le JSON dans req.body la plupart du temps ; on gère les deux cas.
   if (req.body && typeof req.body === 'object') return req.body;
   if (typeof req.body === 'string' && req.body.length) {
     try { return JSON.parse(req.body); } catch { throw new Error('Corps de requête JSON invalide.'); }
@@ -184,20 +196,20 @@ export default async function handler(req, res) {
     return sendJson(res, 400, { error: err.message });
   }
 
-  const { mode, domain, goal, transcript, question } = body || {};
+  const { mode, topic, transcript, proposed, asked } = body || {};
 
-  if (!mode || !['questions', 'answer', 'summary'].includes(mode)) {
+  if (!mode || MODES.indexOf(mode) === -1) {
     return sendJson(res, 400, {
-      error: 'Paramètre « mode » invalide : attendu "questions", "answer" ou "summary".'
+      error: 'Paramètre « mode » invalide : attendu "questions" ou "summary".'
     });
   }
-  if (mode === 'answer' && !(question && String(question).trim())) {
-    return sendJson(res, 400, { error: 'Une question est requise pour le mode "answer".' });
-  }
 
-  const userPrompt = buildUserPrompt({ mode, domain, goal, transcript, question });
+  const userPrompt = mode === 'summary'
+    ? buildSummaryPrompt({ topic, transcript, asked })
+    : buildQuestionsPrompt({ topic, transcript, proposed, asked });
+
   const model = process.env.CLAUDE_MODEL || DEFAULT_MODEL;
-  const maxTokens = mode === 'summary' ? 1500 : 500;
+  const maxTokens = mode === 'summary' ? 3000 : 500;
 
   // --- Appel de l'API Anthropic --------------------------------------------
   let upstream;
