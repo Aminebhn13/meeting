@@ -66,6 +66,7 @@ d'environnement, puis un redéploiement. **Marche à suivre détaillée : [DEPLO
 | `ANTHROPIC_API_KEY` | oui | — | Clé API Anthropic. **Jamais exposée au navigateur.** |
 | `APP_PASSWORD` | recommandé | — | Si défini, le header `x-app-password` est exigé ; sinon `401`. |
 | `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle utilisé. |
+| `ANTHROPIC_WORKSPACE_ID` | non | — | Uniquement si la clé n'est rattachée à aucun workspace (Anthropic renvoie alors une erreur 400 le réclamant). |
 
 > Les variables ne s'appliquent qu'après un **redéploiement**.
 

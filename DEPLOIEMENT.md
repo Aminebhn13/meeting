@@ -36,6 +36,10 @@ Ajoute-les une par une, en cochant bien **Production** :
 | `APP_PASSWORD` | un mot de passe que tu choisis — c'est celui que tu taperas dans l'app |
 
 > Optionnel : `CLAUDE_MODEL` pour changer de modèle. Sans elle, c'est `claude-sonnet-5`.
+>
+> Optionnel : `ANTHROPIC_WORKSPACE_ID`, **uniquement** si l'app renvoie l'erreur
+> « votre clé n'est rattachée à aucun workspace ». Plus simple : créer une clé
+> directement dans un workspace sur la console Anthropic.
 
 ## 3. Redéployer — **obligatoire**
 

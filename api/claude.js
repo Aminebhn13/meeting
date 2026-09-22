@@ -212,15 +212,21 @@ export default async function handler(req, res) {
   const maxTokens = mode === 'summary' ? 3000 : 500;
 
   // --- Appel de l'API Anthropic --------------------------------------------
+  const headers = {
+    'content-type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': ANTHROPIC_VERSION
+  };
+  // Une clé créée au niveau de l'organisation n'est rattachée à aucun workspace :
+  // Anthropic exige alors ce header. Sans la variable, on n'envoie rien.
+  const workspaceId = (process.env.ANTHROPIC_WORKSPACE_ID || '').trim();
+  if (workspaceId) headers['anthropic-workspace-id'] = workspaceId;
+
   let upstream;
   try {
     upstream = await fetch(ANTHROPIC_URL, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION
-      },
+      headers,
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
@@ -242,7 +248,9 @@ export default async function handler(req, res) {
     const detail =
       (data && data.error && data.error.message) ||
       (rawText ? rawText.slice(0, 300) : 'aucun détail');
+    const needsWorkspace = upstream.status === 400 && /anthropic-workspace-id/i.test(detail);
     const hint =
+      needsWorkspace ? ' — votre clé n’est rattachée à aucun workspace : créez une clé dans un workspace, ou définissez la variable ANTHROPIC_WORKSPACE_ID' :
       upstream.status === 401 ? ' (clé ANTHROPIC_API_KEY invalide ?)' :
       upstream.status === 429 ? ' (limite de débit atteinte, réessayez dans quelques secondes)' :
       upstream.status === 404 ? ` (modèle « ${model} » introuvable ?)` : '';
