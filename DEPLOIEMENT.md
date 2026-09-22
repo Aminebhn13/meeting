@@ -10,10 +10,9 @@ Environ 5 minutes, depuis ton PC. Tes secrets ne transitent par aucun chat :
 ```bash
 git clone https://github.com/Aminebhn13/meeting.git meeting-copilot
 cd meeting-copilot
-git checkout claude/meeting-copilot-app-9g1s9z
 ```
 
-> Si tu préfères que ce soit sur `main` : `git checkout main && git merge claude/meeting-copilot-app-9g1s9z && git push`
+Le code est sur `main` : rien d'autre à faire, tu es déjà sur la bonne branche.
 
 ## 2. Installer et connecter la CLI Vercel
 
