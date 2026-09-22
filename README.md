@@ -49,13 +49,17 @@ vercel login         # authentification
 
 ### Mise en production
 
+Le plus simple, sans terminal : importer le repo sur **[vercel.com/new](https://vercel.com/new)**,
+ajouter les deux variables d'environnement, redéployer.
+**Marche à suivre complète : [DEPLOIEMENT.md](DEPLOIEMENT.md).**
+
+En ligne de commande :
+
 ```bash
 git clone https://github.com/Aminebhn13/meeting.git meeting-copilot
 cd meeting-copilot
 vercel --prod
 ```
-
-> Guide détaillé, pas à pas, avec vérification et dépannage : **[DEPLOIEMENT.md](DEPLOIEMENT.md)**.
 
 ### Variables d'environnement (production)
 
@@ -73,6 +77,12 @@ vercel --prod                                 # redéployer pour appliquer
 | `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle utilisé. |
 
 ### Vérification
+
+Le plus simple : bouton **🔌 Tester la connexion** dans le panneau Contexte de l'app.
+Il fait un vrai appel et nomme précisément ce qui ne va pas (mot de passe, clé absente,
+modèle inexistant, fonction non déployée…).
+
+En ligne de commande :
 
 ```bash
 # Sans mot de passe -> 401

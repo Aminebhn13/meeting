@@ -400,8 +400,11 @@
 
     <div style="margin-top:14px" class="btn-row">
       <button class="btn" id="saveCtx">💾 Enregistrer</button>
-      <button class="btn" id="resetAll">🗑️ Réinitialiser la session</button>
+      <button class="btn" id="testBtn">🔌 Tester la connexion</button>
     </div>
+    <button class="btn wide" id="resetAll" style="margin-top:8px">🗑️ Réinitialiser la session</button>
+    <div class="msg err"  id="testErr" style="margin:10px 0 0"></div>
+    <div class="msg info" id="testOk"  style="margin:10px 0 0"></div>
     <div class="msg info" id="ctxMsg" style="margin:10px 0 0"></div>
   </div>
 </section>
@@ -950,11 +953,16 @@
     try { data = await res.json(); } catch (e) { /* réponse non JSON */ }
 
     if (!res.ok) {
+      let err;
       if (res.status === 401) {
         setCtxOpen(true);
-        throw new Error('Mot de passe incorrect ou manquant — renseignez-le dans « Contexte ».');
+        err = new Error('Mot de passe incorrect ou manquant — renseignez-le dans « Contexte ».');
+      } else {
+        err = new Error((data && data.error) || ('Erreur serveur ' + res.status + '.'));
       }
-      throw new Error((data && data.error) || ('Erreur serveur ' + res.status + '.'));
+      err.status = res.status;
+      err.serverError = (data && data.error) || '';
+      throw err;
     }
     if (!data || !data.text) throw new Error('Réponse vide du serveur.');
     return data.text;
@@ -1019,6 +1027,54 @@
   }
 
   $('genQ').addEventListener('click', () => generateQuestions(true));
+
+  /* ------------------- Test de configuration (depuis le tél.) ------------ */
+  async function testConnection() {
+    saveCtx(true);
+    showMsg('testErr', ''); showMsg('testOk', '');
+    setLoading($('testBtn'), true, 'Test…');
+    try {
+      await callApi({
+        mode: 'questions',
+        transcript: '[00:05] Ceci est un test de configuration de l’application.'
+      });
+      showMsg('testOk', '<b>✅ Tout est bon.</b> Le serveur, le mot de passe et la clé API répondent ' +
+        'correctement. Tu peux démarrer une réunion.');
+    } catch (e) {
+      const status = e.status;
+      const raw = (e.serverError || e.message || '');
+      let diag;
+      if (status === 401) {
+        diag = '<b>❌ Mot de passe refusé.</b> Le mot de passe saisi ci-dessus ne correspond pas à la ' +
+               'variable <b>APP_PASSWORD</b> définie sur Vercel. Vérifie les deux — et souviens-toi ' +
+               'qu’après avoir ajouté une variable sur Vercel il faut <b>redéployer</b>.';
+      } else if (/ANTHROPIC_API_KEY/.test(raw)) {
+        diag = '<b>❌ Clé API absente côté serveur.</b> Ajoute la variable <b>ANTHROPIC_API_KEY</b> ' +
+               'dans Vercel (Settings → Environment Variables, environnement Production), puis ' +
+               '<b>redéploie</b> (Deployments → ⋯ → Redeploy).';
+      } else if (status === 404 && /mod[eè]le/i.test(raw)) {
+        diag = '<b>❌ Modèle introuvable.</b> La variable <b>CLAUDE_MODEL</b> pointe vers un modèle ' +
+               'qui n’existe pas. Supprime-la pour revenir au modèle par défaut, puis redéploie.';
+      } else if (status === 401 || /cl[ée] .*invalide/i.test(raw)) {
+        diag = '<b>❌ Clé API refusée par Anthropic.</b> Vérifie ta clé sur console.anthropic.com.';
+      } else if (status === 429) {
+        diag = '<b>⚠️ Limite de débit atteinte.</b> La configuration est bonne, réessaie dans ' +
+               'quelques secondes.';
+      } else if (status === 404 || status === 405) {
+        diag = '<b>❌ Fonction introuvable.</b> Le fichier <code>api/claude.js</code> n’a pas été ' +
+               'déployé. Vérifie que le dossier <b>api/</b> est bien à la racine du projet Vercel.';
+      } else if (!status) {
+        diag = '<b>❌ Serveur injoignable.</b> Vérifie ta connexion internet, et que tu ouvres bien ' +
+               'l’URL de production Vercel (pas un fichier local).';
+      } else {
+        diag = '<b>❌ Erreur ' + status + '.</b> ' + esc(raw);
+      }
+      showMsg('testErr', diag);
+    } finally {
+      setLoading($('testBtn'), false);
+    }
+  }
+  $('testBtn').addEventListener('click', testConnection);
 
   /* --- Boucle automatique : jamais d'appel si rien de neuf n'a été dit --- */
   function autoTick() {
@@ -1211,7 +1267,7 @@
     $('exportS').disabled = true;
     $('askOut').style.display = 'none';
     $('endBtn').disabled = true;
-    ['qErr', 'askErr', 'sumErr', 'micMsg'].forEach((id) => showMsg(id, ''));
+    ['qErr', 'askErr', 'sumErr', 'micMsg', 'testErr', 'testOk'].forEach((id) => showMsg(id, ''));
     updateUi();
   });
 

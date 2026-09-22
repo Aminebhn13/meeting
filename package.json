@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Copilote IA mobile pour visioconferences : transcription live, questions suggerees, bilan structure.",
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "vercel dev",
