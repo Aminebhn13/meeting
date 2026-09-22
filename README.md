@@ -50,9 +50,13 @@ vercel login         # authentification
 ### Mise en production
 
 ```bash
-git clone <url-du-repo> && cd meeting-copilot
+git clone https://github.com/Aminebhn13/meeting.git meeting-copilot
+cd meeting-copilot
+git checkout claude/meeting-copilot-app-9g1s9z
 vercel --prod
 ```
+
+> Guide détaillé, pas à pas, avec vérification et dépannage : **[DEPLOIEMENT.md](DEPLOIEMENT.md)**.
 
 ### Variables d'environnement (production)
 
