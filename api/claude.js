@@ -249,14 +249,17 @@ export default async function handler(req, res) {
       (data && data.error && data.error.message) ||
       (rawText ? rawText.slice(0, 300) : 'aucun détail');
     const needsWorkspace = upstream.status === 400 && /anthropic-workspace-id/i.test(detail);
+    const noCredit = /credit balance is too low/i.test(detail);
     const hint =
+      noCredit ? ' — crédit API épuisé : rechargez le compte sur console.anthropic.com → Plans & Billing (compte séparé de l’abonnement Claude)' :
       needsWorkspace ? ' — votre clé n’est rattachée à aucun workspace : créez une clé dans un workspace, ou définissez la variable ANTHROPIC_WORKSPACE_ID' :
       upstream.status === 401 ? ' (clé ANTHROPIC_API_KEY invalide ?)' :
       upstream.status === 429 ? ' (limite de débit atteinte, réessayez dans quelques secondes)' :
       upstream.status === 404 ? ` (modèle « ${model} » introuvable ?)` : '';
-    return sendJson(res, upstream.status, {
-      error: `Erreur API Anthropic ${upstream.status}${hint} : ${detail}`
-    });
+    const message = (noCredit || needsWorkspace)
+      ? `Erreur API Anthropic ${upstream.status}${hint}.`
+      : `Erreur API Anthropic ${upstream.status}${hint} : ${detail}`;
+    return sendJson(res, upstream.status, { error: message });
   }
 
   const text = Array.isArray(data && data.content)

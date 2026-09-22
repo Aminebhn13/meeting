@@ -59,6 +59,7 @@ Les variables ne s'appliquent **pas** au déploiement déjà en ligne.
 | Le mot de passe est redemandé en boucle | Il ne correspond pas à `APP_PASSWORD`. Ou tu as oublié le **redéploiement** de l'étape 3. |
 | « Configuration serveur incomplète » | `ANTHROPIC_API_KEY` manquante en Production → refais les étapes 2 et 3. |
 | « Erreur API Anthropic 401 » | La clé est invalide ou révoquée. |
+| « crédit API épuisé » | Le compte **API** n'a plus de crédit — c'est un compte séparé de l'abonnement Claude. Recharge sur console.anthropic.com → Plans & Billing. |
 | « modèle introuvable » | `CLAUDE_MODEL` pointe vers un modèle inexistant — supprime la variable, redéploie. |
 | « Serveur injoignable » | Pas de réseau, ou tu n'es pas sur l'URL Vercel. |
 
