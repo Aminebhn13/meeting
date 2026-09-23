@@ -34,6 +34,7 @@ Ajoute-les une par une, en cochant bien **Production** :
 |---|---|
 | `ANTHROPIC_API_KEY` | ta clé `sk-ant-…` → [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | `APP_PASSWORD` | un mot de passe que tu choisis — c'est celui que tu taperas dans l'app |
+| `DEEPGRAM_API_KEY` | ta clé Deepgram → [console.deepgram.com](https://console.deepgram.com) (transcription pro ; sans elle l'app bascule sur le moteur du navigateur) |
 
 > Optionnel : `CLAUDE_MODEL` (bilan, défaut `claude-sonnet-5`) et `CLAUDE_MODEL_FAST`
 > (analyse temps réel, défaut `claude-haiku-4-5-20251001`).

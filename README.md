@@ -12,84 +12,97 @@ Aucune dépendance, aucun build : un `index.html` statique + une fonction server
 
 ## L'écran
 
-Rien à cliquer pendant la réunion.
+Rien à cliquer pendant la réunion. **Mode discret** : noir profond, blanc cassé, aucune couleur
+vive, aucune animation voyante, aucun son. L'écran éclaire le moins possible votre visage.
 
 | | |
 |---|---|
-| **Sujet de la réunion** | **Obligatoire.** Une zone de 3 lignes en haut : le sujet *et* l'objectif. Le bouton Écouter reste grisé en dessous de 10 caractères. Une fois l'écoute lancée, le sujet se replie en une ligne ; un tap le rouvre, et la modification est prise en compte au cycle suivant. Prérempli avec le dernier sujet utilisé. |
-| **Gros bouton rond** | 🎙 Écouter / ⏸ Pause. À côté : point rouge clignotant et chronomètre. |
-| **Questions à poser** | Toujours 3 questions, en grosse police, chacune suivie de son **💡 pourquoi** — une phrase qui dit l'intérêt stratégique de la question. Elles se renouvellent seules : dès que l'interlocuteur répond, la question se coche en vert, affiche la réponse 2 secondes, puis s'efface. |
-| **✓ Réponses obtenues (n)** | Liste repliable : chaque question traitée, sa réponse et son pourquoi. Fermée par défaut. |
-| **Voir la transcription** | Bloc replié par défaut. |
-| **Terminer la réunion** | Bouton fixe en bas : arrête l'écoute et affiche le bilan en plein écran. |
+| **Sujet de la réunion** | **Obligatoire.** Zone de 3 lignes : le sujet *et* l'objectif. Le bouton Écouter reste grisé sous 10 caractères. Pendant l'écoute il se replie en une ligne ; un tap le rouvre, la modification vaut dès le cycle suivant. |
+| **▶ MAINTENANT** | **1 question, en 26 px**, collée en haut de l'écran, avec son 💡 pourquoi (8 mots max). C'est la seule chose à lire en parlant. |
+| **ENSUITE** | 4 relances alternatives, taille moyenne. |
+| **À ABORDER** | 3 questions pour amener les sujets de l'objectif pas encore traités, plus petites. |
+| **Il vous demande : …** | Bandeau en haut dès que le client pose une question directe. |
+| **✓ Réponses obtenues (n)** | Repliable : chaque question traitée, sa réponse, son pourquoi. |
+| **Transcription** | Repliable, avec **Moi :** / **Client :**. |
+| **⚡ 0,9 s** | Latence moyenne des 5 derniers appels, en haut à droite. |
 
-Le mot de passe est demandé **une seule fois**, au premier lancement. S'il est refusé (401), il est redemandé.
+Soit **7 à 8 questions en permanence**. Elles disparaissent seules quand le client répond,
+sont remplacées quand elles deviennent hors sujet, jamais en double.
 
-## Le sujet commande tout
+**Options** (⚙) : afficher le pourquoi, question collée en haut, vibration (**désactivée par
+défaut**), inverser Moi / Client.
 
-Le sujet n'est pas un simple champ de contexte : il est injecté dans le **prompt système**, en mode
-temps réel comme pour le bilan. Chaque question doit servir cet objectif, et le modèle a pour
-consigne d'ignorer les digressions sans rapport. Sans sujet d'au moins 10 caractères, le backend
-refuse la requête avec un **400**.
+> **Posez le téléphone juste sous la webcam.** La question MAINTENANT est collée en haut de
+> l'écran : votre regard reste à quelques centimètres de la caméra, et vous continuez à
+> regarder votre interlocuteur.
 
-## Jamais d'écran vide
+## Transcription — Deepgram en streaming
 
-Dès que le sujet est saisi (au blur du champ), un premier appel part avec la transcription vide :
-3 questions d'ouverture sont prêtes **avant** que quiconque ait parlé. Si le pré-chauffage n'a rien
-produit, le clic sur Écouter en déclenche un immédiatement.
+WebSocket vers **Deepgram nova-3** (`language=fr`, `interim_results`, `smart_format`,
+`diarize`, `endpointing=300`, `utterance_end_ms=1000`). L'audio part par tranches de 250 ms.
 
-## Comment les questions se mettent à jour
+La capture micro désactive volontairement `echoCancellation` et `noiseSuppression` : on capte
+les **haut-parleurs du PC**, et ces filtres effaceraient la voix du client. `autoGainControl`
+reste actif.
 
-À chaque cycle, l'IA reçoit les 3 questions affichées (avec leur id) et la fin de la transcription,
-et répond en JSON strict :
+**Diarisation** : Deepgram sépare les locuteurs ; le premier entendu est étiqueté « Moi »,
+l'autre « Client ». Si la réunion commence autrement, l'option **Inverser Moi / Client**
+corrige **toute** la transcription, y compris les passages déjà écrits.
 
-```json
-{
-  "answered": [{ "id": "q3", "answer": "résumé de la réponse en une phrase" }],
-  "obsolete": ["q5"],
-  "new":      [{ "question": "…", "why": "pourquoi cette question, 15 mots max" }]
-}
-```
+La clé Deepgram ne quitte jamais le serveur : `api/deepgram-token.js` délivre un **JWT de
+5 minutes** (l'API renvoie 30 s par défaut, trop court pour ouvrir le micro puis le socket),
+protégé par `APP_PASSWORD`. Le WebSocket se reconnecte tout seul avec un jeton frais.
 
-- **answered** — l'interlocuteur a répondu, même sans reprendre les mots de la question, même si
-  vous ne l'avez pas posée, même si le sujet est venu spontanément.
-- **obsolete** — la question ne sert plus l'objectif.
-- **new** — de quoi revenir à 3 questions, sans doublon. Le filtre est tolérant : accents, casse et
-  ponctuation ignorés, et une reformulation qui contient une question existante est écartée.
+**Repli automatique** : si le jeton ou le WebSocket échoue, l'app bascule sur la Web Speech API
+du navigateur sans interrompre la réunion (sans séparation des locuteurs).
 
-**Streaming.** L'appel à l'API Anthropic est fait en `stream: true` et le flux est relayé au front
-en SSE. Le navigateur parse le JSON **au fur et à mesure** : chaque question s'affiche dès que son
-objet est refermé, sans attendre la fin de la réponse — environ 1,5 s gagnées par cycle. L'événement
-`done` final fait autorité ; les questions déjà affichées sont écartées comme doublons. Si le flux
-est illisible, l'affichage reste tel quel, **sans message d'erreur**. Le bilan est streamé de la même
-façon, avec un curseur d'écriture.
+## Questions au tac au tac
 
-**Cadence** : une analyse part dès qu'une phrase est transcrite **et** qu'environ 80 nouveaux
-caractères sont arrivés, avec au plus **un appel toutes les 12 s**. Jamais deux en parallèle : si du
-texte arrive pendant une analyse, la suivante est programmée pour l'instant exact où la fenêtre se
-rouvre. Seuls les **4 000 derniers caractères** partent en mode live.
+Une analyse part :
 
-**Deux modèles** : Haiku 4.5 pour le temps réel (`CLAUDE_MODEL_FAST`), Sonnet pour le bilan
-(`CLAUDE_MODEL`).
+- sur **texte intermédiaire**, ~1,2 s après du nouveau contenu — l'IA travaille **pendant que
+  le client parle encore** ; le passage en cours lui est envoyé marqué `[EN COURS]` ;
+- **immédiatement** à chaque fin d'énoncé (`UtteranceEnd` de Deepgram) ;
+- **immédiatement** quand le client pose une question.
+
+**Le plus récent gagne** : chaque nouvel appel annule le précédent (`AbortController`). Pas de
+file d'attente, pas de réponse périmée qui s'affiche. Plafond de sécurité : 1 appel / 2 s.
+
+**Stabilité** : la question MAINTENANT tient **au moins 4 s** — sauf si elle vient d'être
+répondue, ou si l'IA renvoie `replaceNow: true` parce que la nouvelle est nettement meilleure.
+Sinon la relance proposée bascule en « Ensuite ». Le rendu se fait **par diff sur des ids
+stables** : seules les cartes qui changent s'animent (150–200 ms), les autres ne bougent pas.
+
+## Latence minimale
+
+- **Vercel Edge Runtime** : pas de cold start.
+- **Haiku 4.5** pour le live, **2 500 derniers caractères** seulement, `max_tokens` 350.
+- **Résumé roulant** régénéré toutes les 2 min par un appel de fond : la mémoire longue de la
+  réunion sans alourdir chaque appel.
+- **Préchauffage** : ping de l'endpoint au chargement puis toutes les 4 min.
+- **Prompt caching** (`cache_control: ephemeral`) sur le préfixe stable — règles de style et
+  sujet. ⚠️ Le minimum cacheable de **Haiku 4.5 est de 4096 tokens** : sous ce seuil Anthropic
+  ignore le marqueur sans erreur. Le préfixe actuel (~600 tokens) est en dessous, donc le cache
+  **ne s'active pas encore** ; il s'activera dès que le contexte grossira. L'événement SSE
+  `usage` renvoie `cache_read` / `cache_write` pour le vérifier plutôt que le supposer.
 
 ## Le bilan
 
-Dix sections, rien d'inventé, « non précisé » quand l'information manque :
+Dix sections, rien d'inventé, propos attribués Moi / Client :
 
 `SUJET DE LA RÉUNION` · **`OBJECTIF ATTEINT ?`** (ce qui a été obtenu, ce qui manque) · `RÉSUMÉ` ·
-`POINTS CLÉS & INFORMATIONS OBTENUES` · `DÉCISIONS PRISES` · `ACTIONS À FAIRE` (qui → quoi → échéance) ·
-`QUESTIONS & RÉPONSES OBTENUES` · `QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS` · `OÙ ON EN EST` ·
-`PROCHAINE ÉTAPE RECOMMANDÉE`
+`POINTS CLÉS & INFORMATIONS OBTENUES` · `DÉCISIONS PRISES` · `ACTIONS À FAIRE` ·
+`QUESTIONS & RÉPONSES OBTENUES` · `QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS` ·
+`OÙ ON EN EST` · `PROCHAINE ÉTAPE RECOMMANDÉE`
 
-Puis **📋 Copier**, **⬇ Télécharger .md** (bilan + questions/réponses avec leur pourquoi + questions
-ouvertes + transcription complète) et **Nouvelle réunion**.
+Streamé au fur et à mesure. Puis **Copier**, **⬇ .md** (bilan + Q/R + mémoire + transcription
+diarisée) et **Nouvelle réunion**.
 
 ## Ne rien perdre
 
-Sujet, transcription, questions actives et réponses obtenues sont écrits dans le `localStorage`
-pendant l'écoute. Si la page se recharge ou si l'écran se verrouille, l'app propose au lancement
-suivant de **reprendre la réunion**. Le Wake Lock garde l'écran allumé, et la reconnaissance vocale
-redémarre toute seule quand le navigateur la coupe.
+Sujet, transcription, les 3 niveaux, réponses obtenues et résumé roulant sont écrits dans le
+`localStorage`. Si la page se recharge, l'app propose de **reprendre la réunion**. Wake Lock pour
+garder l'écran allumé.
 
 ---
 
@@ -103,43 +116,42 @@ d'environnement, puis un redéploiement. **Marche à suivre détaillée : [DEPLO
 | `ANTHROPIC_API_KEY` | oui | — | Clé API Anthropic. **Jamais exposée au navigateur.** |
 | `APP_PASSWORD` | recommandé | — | Si défini, le header `x-app-password` est exigé ; sinon `401`. |
 | `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle du bilan. |
-| `CLAUDE_MODEL_FAST` | non | `claude-haiku-4-5-20251001` | Modèle de l'analyse temps réel. |
+| `CLAUDE_MODEL_FAST` | non | `claude-haiku-4-5-20251001` | Modèle du temps réel et du résumé roulant. |
+| `DEEPGRAM_API_KEY` | recommandé | — | Transcription Deepgram nova-3. Sans elle, l'app bascule sur le moteur du navigateur. |
 | `ANTHROPIC_WORKSPACE_ID` | non | — | Uniquement si la clé n'est rattachée à aucun workspace (Anthropic renvoie alors une erreur 400 le réclamant). |
 
 > Les variables ne s'appliquent qu'après un **redéploiement**.
 
 ## API interne
 
-`POST /api/claude` — POST uniquement (`405` sinon). Le **sujet est obligatoire** : sans lui, `400`.
-Réponse diffusée en **SSE** (`text/event-stream`) : des événements `delta` puis un `done` final.
+Deux endpoints, tous deux en **Edge Runtime**, tous deux protégés par `APP_PASSWORD`.
+
+### `POST /api/deepgram-token`
+`-> 200 { access_token, expires_in }` · `401` sans mot de passe · `500` si `DEEPGRAM_API_KEY`
+est absente. Le jeton vaut 5 minutes.
+
+### `POST /api/claude`
+Réponse en **SSE** : `delta` (texte au fil de l'eau), `usage` (diagnostic du cache), `done`.
 
 ```jsonc
-// mode "live" — temps réel, modèle rapide
-{
-  "mode": "live",
-  "topic": "…",                               // OBLIGATOIRE, 10 caractères minimum
-  "transcript": "…",                          // 4 000 derniers caractères ; vide = questions d'ouverture
-  "questions": [{ "id": "q1", "text": "…" }], // les 3 affichées
-  "answered": ["…"]                           // textes déjà traités, anti-doublon
-}
-// done -> { "answered":[{id,answer}], "obsolete":["id"], "new":[{question,why}] }
+{ "mode": "ping" }                      // préchauffe, n'appelle pas Anthropic -> { ok: true }
 
-// mode "summary" — bilan, modèle principal
-{
-  "mode": "summary",
-  "topic": "…",                               // OBLIGATOIRE
-  "transcript": "…",                          // 60 000 derniers caractères
-  "qa":   [{ "question": "…", "answer": "…", "why": "…" }],
-  "open": ["…"]
-}
-// done -> { "text": "…" }
+{ "mode": "live",                        // temps réel, Haiku, max_tokens 350
+  "topic": "…",                          // OBLIGATOIRE, 10 caractères minimum
+  "transcript": "…",                     // 2 500 derniers caractères, « Moi : » / « Client [EN COURS] : »
+  "digest": "…",                         // résumé roulant
+  "questions": [{ "id": "q1", "text": "…" }],
+  "answered": ["…"] }
+// done -> { answered:[{id,answer}], obsolete:["id"], ask:"", replaceNow:bool,
+//           now:{question,why}, next:[{question}], later:[{question}] }
+
+{ "mode": "digest", "topic": "…", "transcript": "…", "previous": "…" }   // -> { text }
+{ "mode": "summary", "topic": "…", "transcript": "…", "qa": [...], "open": [...] } // -> { text }
 ```
 
-Une erreur survenue **avant** le début du flux est renvoyée en JSON classique avec le bon code HTTP
-(`{ "error": "…" }`). Une erreur en cours de flux arrive en événement `error`.
-`max_tokens` : **3000** pour `summary`, **700** pour `live`.
-Le mode `live` renvoie toujours les trois listes — vides si le modèle n'a pas produit de JSON
-exploitable, pour ne jamais perturber l'affichage.
+Une erreur survenue **avant** le flux revient en JSON classique avec le bon code HTTP.
+Le mode `live` renvoie toujours la structure complète — vide si le modèle n'a pas produit de
+JSON exploitable, pour ne jamais perturber l'affichage.
 
 ---
 

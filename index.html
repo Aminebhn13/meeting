@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#0d1117">
-<meta name="description" content="Copilote de réunion : écoute, suit les questions en direct, produit le bilan.">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Copilote de réunion haute performance : relances en direct, bilan complet.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,357 +12,337 @@
 <title>Meeting Copilot</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
 <style>
+  /* Mode discret : noir profond, blanc cassé, aucune couleur vive.
+     L'écran éclaire le moins possible le visage en visioconférence. */
   :root {
-    --bg:          #0d1117;
-    --surface:     #161b22;
-    --surface-2:   #1c2129;
-    --border:      #262c36;
-    --border-soft: #21262d;
-    --text:        #e6edf3;
-    --dim:         #9198a1;
-    --faint:       #6e7681;
-    --accent:      #58a6ff;
-    --accent-dim:  #1f6feb;
-    --danger:      #f85149;
-    --ok:          #3fb950;
-    --warn:        #d29922;
-    --anim:        250ms;
-    --ease:        cubic-bezier(.4, 0, .2, 1);
+    --bg:        #000000;
+    --surface:   #0c0d0f;
+    --surface-2: #14161a;
+    --border:    #1e2126;
+    --border-2:  #2a2e35;
+    --text:      #e8e6e3;
+    --dim:       #8b8d93;
+    --faint:     #5c5f66;
+    --accent:    #7d94b5;
+    --accent-2:  #46586f;
+    --ok:        #6d9b7a;
+    --warn:      #9b8f5f;
+    --danger:    #a86a66;
+    --anim:      180ms;
+    --ease:      cubic-bezier(.4, 0, .2, 1);
     --safe-b: env(safe-area-inset-bottom, 0px);
     --safe-t: env(safe-area-inset-top, 0px);
-    --bar-h: 72px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   [hidden] { display: none !important; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: 16px; line-height: 1.5;
-    -webkit-text-size-adjust: 100%;
+    font-size: 16px; line-height: 1.5; -webkit-text-size-adjust: 100%;
     overscroll-behavior-y: none;
-    padding: calc(var(--safe-t) + 10px) 14px calc(var(--bar-h) + var(--safe-b) + 20px);
+    padding: calc(var(--safe-t) + 8px) 12px calc(76px + var(--safe-b));
     max-width: 720px; margin: 0 auto;
   }
 
+  /* ---------------- Barre d'état ---------------- */
+  .statusbar {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px; color: var(--faint);
+    padding: 0 2px 8px; font-variant-numeric: tabular-nums;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.rec { background: var(--danger); animation: pulse 2s ease-in-out infinite; }
+  .dot.paused { background: var(--warn); }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+  .statusbar .sp { flex: 1; }
+  .statusbar .chip {
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; color: var(--dim);
+  }
+  .statusbar .chip.live { border-color: var(--accent-2); color: var(--accent); }
+  #lat { min-width: 52px; text-align: right; }
+
   /* ---------------- Sujet ---------------- */
-  .topic-wrap { margin-bottom: 18px; }
+  .topic-wrap { margin-bottom: 14px; }
   #topic {
     width: 100%; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; color: var(--text); font-family: inherit; font-size: 16px;
-    line-height: 1.45; padding: 13px 14px; resize: vertical; min-height: 92px;
+    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px;
+    line-height: 1.45; padding: 12px 13px; resize: vertical; min-height: 88px;
     appearance: none; -webkit-appearance: none;
   }
   #topic::placeholder { color: var(--faint); }
-  #topic:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(88,166,255,.14); }
-  #topicHint {
-    font-size: 12px; color: var(--faint); margin-top: 7px; line-height: 1.4;
-    transition: color var(--anim) var(--ease);
-  }
+  #topic:focus { outline: none; border-color: var(--accent-2); }
+  #topicHint { font-size: 11.5px; color: var(--faint); margin-top: 6px; line-height: 1.4; }
   #topicHint.ready { color: var(--ok); }
-
-  /* Sujet replié pendant l'écoute : une ligne, tapable pour modifier. */
   #topicBar {
-    display: flex; align-items: center; gap: 9px; width: 100%;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    color: var(--dim); font-family: inherit; font-size: 13px; text-align: left;
-    padding: 10px 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--faint); font-family: inherit; font-size: 12px; text-align: left;
+    padding: 7px 10px; cursor: pointer; margin-bottom: 10px;
   }
-  #topicBar:active { background: var(--surface-2); }
   #topicBar .txt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #topicBar .pen { color: var(--faint); font-size: 13px; flex: none; }
 
-  /* ---------------- Bouton d'écoute ---------------- */
-  .listen-row { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
-  #listenBtn {
-    width: 96px; height: 96px; flex: none; border-radius: 50%; border: none;
-    background: var(--accent-dim); color: #fff; font-family: inherit;
-    font-size: 15px; font-weight: 700; line-height: 1.25; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-    box-shadow: 0 6px 20px rgba(31,111,235,.35);
-    transition: transform .1s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
+  /* ---------------- Bandeau « il vous demande » ---------------- */
+  #askBanner {
+    background: var(--surface-2); border: 1px solid var(--accent-2);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
+    font-size: 14.5px; line-height: 1.4; color: var(--text);
+    transition: opacity var(--anim) var(--ease);
   }
-  #listenBtn .ico { font-size: 26px; line-height: 1; }
-  #listenBtn:active { transform: scale(.95); }
-  #listenBtn.on { background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px rgba(248,81,73,.3); }
-  #listenBtn:disabled { opacity: .35; box-shadow: none; cursor: default; background: var(--surface-2); color: var(--dim); }
-
-  .meta { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-  .live { display: flex; align-items: center; gap: 9px; }
-  .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--faint); flex: none; }
-  .dot.rec { background: var(--danger); animation: blink 1.15s ease-in-out infinite; }
-  .dot.paused { background: var(--warn); }
-  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .15 } }
-  #chrono { font-size: 30px; font-weight: 300; font-variant-numeric: tabular-nums; }
-  #liveLabel { font-size: 13px; color: var(--dim); }
-
-  /* ---------------- En-tête de section ---------------- */
-  .sec-head {
-    display: flex; align-items: center; gap: 10px; margin: 0 0 12px;
-    font-size: 12px; font-weight: 700; letter-spacing: .09em;
-    color: var(--dim); text-transform: uppercase;
+  #askBanner .lbl {
+    display: block; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 3px;
   }
-  .sec-head .ttl { flex: none; }
-  .sec-head .spacer { flex: 1; }
-  #analyzing {
-    font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: none;
-    color: var(--accent); opacity: 0; transition: opacity var(--anim) var(--ease);
-    white-space: nowrap;
-  }
-  #analyzing.on { opacity: .85; }
-  #analyzing .pulse { animation: pulse 1.2s ease-in-out infinite; display: inline-block; }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
 
-  .icon-btn {
-    background: var(--surface); border: 1px solid var(--border); color: var(--dim);
-    border-radius: 9px; width: 38px; height: 38px; flex: none; font-size: 16px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  /* ---------------- Niveaux de questions ---------------- */
+  .tier-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--faint); margin: 16px 2px 7px; display: flex; align-items: center; gap: 7px;
   }
-  .icon-btn:active { background: var(--surface-2); }
-  .icon-btn:disabled { opacity: .4; cursor: default; }
+  .tier-label .n { color: var(--faint); font-weight: 500; letter-spacing: 0; }
 
-  /* ---------------- Questions actives ---------------- */
-  ul.qlist { list-style: none; margin: 0; padding: 0; min-height: 318px; }
-  ul.qlist li {
+  ul.cards { list-style: none; margin: 0; padding: 0; }
+  ul.cards li {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 13px; margin-bottom: 7px; overflow: hidden;
+    transition: opacity var(--anim) var(--ease), transform var(--anim) var(--ease),
+                height var(--anim) var(--ease), margin-bottom var(--anim) var(--ease),
+                padding-top var(--anim) var(--ease), padding-bottom var(--anim) var(--ease),
+                border-color var(--anim) var(--ease);
+  }
+  ul.cards li.entering { opacity: 0; transform: translateY(8px); }
+  ul.cards li.leaving {
+    height: 0 !important; margin-bottom: 0 !important;
+    padding-top: 0 !important; padding-bottom: 0 !important;
+    opacity: 0; border-width: 0; transform: translateX(14px);
+  }
+  ul.cards li.answered { border-color: var(--ok); }
+  ul.cards li.answered .q { color: var(--dim); }
+  ul.cards li.obsolete { opacity: .3; }
+
+  /* MAINTENANT — très gros, collé en haut */
+  #nowWrap { margin: 0 0 4px; }
+  body.pin-top #nowWrap {
+    position: sticky; top: calc(var(--safe-t) + 0px); z-index: 20;
+    background: var(--bg); padding-top: 4px; padding-bottom: 4px;
+  }
+  #nowList li {
+    border-left: 2px solid var(--accent); padding: 16px 15px; margin-bottom: 0;
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent);
-    border-radius: 12px;
-    padding: 15px 16px;
-    margin-bottom: 9px;
-    overflow: hidden;
-    position: relative;
-    transition:
-      opacity var(--anim) var(--ease),
-      transform var(--anim) var(--ease),
-      height var(--anim) var(--ease),
-      margin-bottom var(--anim) var(--ease),
-      padding-top var(--anim) var(--ease),
-      padding-bottom var(--anim) var(--ease),
-      border-left-color var(--anim) var(--ease);
   }
-  .qtext { font-size: 19px; line-height: 1.4; font-weight: 500; transition: color var(--anim) var(--ease); }
-  .qwhy {
-    margin-top: 7px; font-size: 13px; line-height: 1.4; color: var(--faint);
-    display: flex; gap: 6px; align-items: flex-start;
+  #nowList .q { font-size: 26px; line-height: 1.24; font-weight: 500; letter-spacing: -.01em; }
+  #nowList .why {
+    margin-top: 8px; font-size: 12.5px; line-height: 1.35; color: var(--faint);
+    display: flex; gap: 5px;
   }
-  .qwhy:empty { display: none; }
-  .qwhy .bulb { flex: none; }
-  ul.qlist li.answered .qwhy { opacity: .5; }
+  body.hide-why #nowList .why { display: none; }
+  #nowList li.answered { border-left-color: var(--ok); }
+  ul.cards .ans { font-size: 13.5px; color: var(--ok); margin-top: 7px; display: none; }
+  ul.cards li.answered .ans { display: block; }
+  #nowList .ans { font-size: 14px; }
 
-  .qmark {
-    position: absolute; top: 14px; right: 14px;
-    color: var(--ok); font-size: 17px; font-weight: 700;
-    opacity: 0; transform: scale(.5);
-    transition: opacity var(--anim) var(--ease), transform var(--anim) var(--ease);
-  }
-  .qanswer {
-    max-height: 0; opacity: 0; overflow: hidden;
-    font-size: 14.5px; line-height: 1.45; color: var(--ok);
-    transition: max-height var(--anim) var(--ease), opacity var(--anim) var(--ease),
-                margin-top var(--anim) var(--ease), padding-top var(--anim) var(--ease);
-  }
+  /* ENSUITE — taille moyenne */
+  #nextList .q { font-size: 16.5px; line-height: 1.35; }
+  #nextList li { border-left: 2px solid var(--border-2); }
 
-  /* nouvelle question : apparition en fondu depuis le bas */
-  ul.qlist li.entering { opacity: 0; transform: translateY(14px); }
-
-  /* question répondue : coche verte + réponse, avant disparition */
-  ul.qlist li.answered { border-left-color: var(--ok); padding-right: 40px; }
-  ul.qlist li.answered .qtext { color: var(--dim); }
-  ul.qlist li.answered .qmark { opacity: 1; transform: scale(1); }
-  ul.qlist li.answered .qanswer {
-    max-height: 200px; opacity: 1;
-    margin-top: 10px; padding-top: 10px;
-    border-top: 1px dashed rgba(63,185,80,.3);
-  }
-
-  /* question obsolète : fondu discret */
-  ul.qlist li.obsolete { opacity: .25; border-left-color: var(--border); }
-
-  /* sortie : la carte glisse, la hauteur se referme (rien ne saute) */
-  ul.qlist li.leaving {
-    height: 0 !important;
-    margin-bottom: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    border-top-width: 0; border-bottom-width: 0;
-    opacity: 0;
-    transform: translateX(28px);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dot.rec, #analyzing .pulse { animation: none; }
-    ul.qlist li, .qtext, .qmark, .qanswer, #analyzing { transition-duration: 1ms; }
-  }
+  /* À ABORDER — plus petit */
+  #laterList .q { font-size: 14px; line-height: 1.35; color: var(--dim); }
+  #laterList li { border-left: 2px solid var(--border); padding: 10px 12px; }
 
   .placeholder {
-    color: var(--faint); font-size: 15px; font-style: italic;
-    background: var(--surface); border: 1px dashed var(--border);
-    border-radius: 12px; padding: 20px 16px; text-align: center;
+    color: var(--faint); font-size: 14px; font-style: italic;
+    border: 1px dashed var(--border); border-radius: 10px; padding: 18px 14px; text-align: center;
   }
 
-  /* ---------------- Réponses obtenues ---------------- */
-  .fold-toggle {
-    background: none; border: none; color: var(--dim);
-    font-family: inherit; font-size: 13.5px; cursor: pointer;
-    padding: 10px 0; display: flex; align-items: center; gap: 8px; width: 100%;
+  /* ---------------- Replis ---------------- */
+  .fold {
+    background: none; border: none; color: var(--faint); font-family: inherit;
+    font-size: 12.5px; cursor: pointer; padding: 9px 2px; display: flex;
+    align-items: center; gap: 7px; width: 100%;
   }
-  .fold-toggle .chev { font-size: 10px; color: var(--faint); transition: transform .18s var(--ease); }
-  .fold-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
-  .fold-toggle .tick { color: var(--ok); font-weight: 700; }
-  ul.answers { list-style: none; margin: 0 0 6px; padding: 0; }
-  ul.answers li {
-    border-left: 2px solid var(--border); padding: 0 0 0 12px; margin-bottom: 14px;
-  }
-  ul.answers .aq { font-size: 14px; color: var(--faint); line-height: 1.4; }
-  ul.answers .aa { font-size: 15px; color: var(--text); line-height: 1.45; margin-top: 3px; }
-  ul.answers .aw { font-size: 12.5px; color: var(--faint); line-height: 1.4; margin-top: 4px; }
+  .fold .chev { font-size: 9px; transition: transform var(--anim) var(--ease); }
+  .fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  ul.answers { list-style: none; margin: 0 0 4px; padding: 0; }
+  ul.answers li { border-left: 1px solid var(--border-2); padding: 0 0 0 11px; margin-bottom: 12px; }
+  ul.answers .aq { font-size: 13px; color: var(--faint); line-height: 1.35; }
+  ul.answers .aa { font-size: 14.5px; color: var(--text); line-height: 1.4; margin-top: 2px; }
+  ul.answers .aw { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
   ul.answers .aw:empty { display: none; }
 
-  /* ---------------- Transcription ---------------- */
-  details.tr { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin: 18px 0 0; }
-  details.tr > summary {
-    list-style: none; cursor: pointer; padding: 13px 15px; font-size: 13.5px;
-    color: var(--dim); display: flex; align-items: center; gap: 9px;
-  }
-  details.tr > summary::-webkit-details-marker { display: none; }
-  details.tr > summary .chev { font-size: 10px; color: var(--faint); transition: transform .18s var(--ease); }
-  details.tr[open] > summary .chev { transform: rotate(90deg); }
-  details.tr > summary .count { margin-left: auto; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
   #transcript {
-    margin: 0 12px 12px; padding: 12px; background: var(--bg);
-    border: 1px solid var(--border-soft); border-radius: 9px;
-    max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    font-size: 14px; line-height: 1.55; overscroll-behavior: contain;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; max-height: 38vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    font-size: 13.5px; line-height: 1.5; overscroll-behavior: contain;
   }
-  #transcript p { margin: 0 0 8px; }
+  #transcript p { margin: 0 0 6px; }
   #transcript p:last-child { margin-bottom: 0; }
-  .ts { color: var(--faint); font-size: 11.5px; font-variant-numeric: tabular-nums; margin-right: 6px; user-select: none; }
+  .who { font-size: 11px; font-weight: 700; letter-spacing: .04em; margin-right: 6px; }
+  .who.me { color: var(--accent); }
+  .who.them { color: var(--ok); }
+  .ts { color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; margin-right: 5px; }
   .interim { color: var(--faint); font-style: italic; }
 
+  /* ---------------- Options ---------------- */
+  #optPanel {
+    border: 1px solid var(--border); border-radius: 10px; padding: 4px 12px 10px;
+    background: var(--surface); margin-bottom: 10px;
+  }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 13.5px; color: var(--dim); }
+  .opt .lbl { flex: 1; }
+  .sw {
+    width: 40px; height: 23px; border-radius: 999px; background: var(--border-2);
+    border: none; position: relative; cursor: pointer; flex: none;
+    transition: background var(--anim) var(--ease);
+  }
+  .sw::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px;
+    border-radius: 50%; background: var(--dim); transition: transform var(--anim) var(--ease);
+  }
+  .sw[aria-checked="true"] { background: var(--accent-2); }
+  .sw[aria-checked="true"]::after { transform: translateX(17px); background: var(--text); }
+
   /* ---------------- Messages / boutons ---------------- */
-  .msg { border-radius: 10px; padding: 11px 13px; font-size: 13.5px; line-height: 1.5; margin-bottom: 12px; border: 1px solid; }
-  .msg.err  { background: rgba(248,81,73,.09);  border-color: rgba(248,81,73,.35);  color: #ffb4ae; }
-  .msg.warn { background: rgba(210,153,34,.09); border-color: rgba(210,153,34,.35); color: #e3b341; }
-  .msg.info { background: rgba(88,166,255,.08); border-color: rgba(88,166,255,.3);  color: #a5d0ff; }
+  .msg { border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; border: 1px solid; }
+  .msg.err  { background: rgba(168,106,102,.08); border-color: rgba(168,106,102,.3); color: #d6a5a2; }
+  .msg.warn { background: rgba(155,143,95,.08); border-color: rgba(155,143,95,.3); color: #c9bb86; }
+  .msg.info { background: rgba(125,148,181,.07); border-color: rgba(125,148,181,.25); color: #a9bcd4; }
   .msg:empty { display: none; }
-  .msg b { font-weight: 680; }
-  .msg .acts { display: flex; gap: 8px; margin-top: 10px; }
+  .msg .acts { display: flex; gap: 8px; margin-top: 9px; }
 
   .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    font-family: inherit; font-size: 14.5px; font-weight: 600;
-    border-radius: 11px; padding: 11px 15px; min-height: 44px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border-2); color: var(--text);
+    font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 9px;
+    padding: 10px 14px; min-height: 42px; cursor: pointer;
   }
   .btn:active { background: var(--surface-2); }
-  .btn:disabled { opacity: .45; cursor: default; }
-  .btn.primary { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.primary { background: var(--accent-2); border-color: var(--accent-2); color: var(--text); }
   .btn.wide { width: 100%; }
-  .btn-row { display: flex; gap: 9px; }
+  .btn-row { display: flex; gap: 8px; }
   .btn-row .btn { flex: 1; }
 
   .bar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    padding: 10px 14px calc(10px + var(--safe-b));
-    background: rgba(13,17,23,.94);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border);
+    padding: 9px 12px calc(9px + var(--safe-b));
+    background: rgba(0,0,0,.96); border-top: 1px solid var(--border);
+    display: flex; gap: 8px;
   }
-  .bar .btn { width: 100%; min-height: 52px; font-size: 16px; font-weight: 680; border-radius: 12px; }
-  #endBtn { border-color: rgba(248,81,73,.45); color: #ff9d97; }
-  #endBtn:disabled { border-color: var(--border); color: var(--faint); }
+  .bar .btn { flex: 1; min-height: 48px; font-size: 15px; border-radius: 10px; }
+  #listenBtn.on { background: var(--surface-2); border-color: var(--danger); color: var(--text); }
+  #endBtn { flex: 0 0 auto; padding: 10px 16px; border-color: var(--border-2); color: var(--dim); }
+  #endBtn:disabled { color: var(--faint); }
 
   .spin {
-    display: inline-block; width: 14px; height: 14px;
-    border: 2px solid rgba(255,255,255,.28); border-top-color: #fff;
-    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
+    display: inline-block; width: 13px; height: 13px;
+    border: 2px solid rgba(232,230,227,.2); border-top-color: var(--text);
+    border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px;
   }
   @keyframes spin { to { transform: rotate(360deg) } }
+  @media (prefers-reduced-motion: reduce) {
+    .dot.rec, .spin { animation: none; }
+    ul.cards li, .sw, .sw::after, .fold .chev { transition-duration: 1ms; }
+  }
 
-  /* ---------------- Modales / plein écran ---------------- */
+  /* ---------------- Modale / bilan ---------------- */
   .overlay {
-    position: fixed; inset: 0; z-index: 100; background: rgba(5,7,10,.72);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.85);
     display: flex; align-items: center; justify-content: center; padding: 20px;
   }
-  .sheet { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; width: 100%; max-width: 420px; }
-  .sheet h2 { margin: 0 0 8px; font-size: 18px; font-weight: 650; }
-  .sheet p { margin: 0 0 16px; font-size: 14px; color: var(--dim); line-height: 1.5; }
+  .sheet { background: var(--surface); border: 1px solid var(--border-2); border-radius: 14px; padding: 20px; width: 100%; max-width: 420px; }
+  .sheet h2 { margin: 0 0 8px; font-size: 17px; font-weight: 650; }
+  .sheet p { margin: 0 0 14px; font-size: 13.5px; color: var(--dim); line-height: 1.45; }
   .sheet input[type=password] {
-    width: 100%; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px;
-    padding: 12px 13px; margin-bottom: 12px; appearance: none; -webkit-appearance: none;
+    width: 100%; background: var(--bg); border: 1px solid var(--border-2); border-radius: 9px;
+    color: var(--text); font-family: inherit; font-size: 16px; padding: 11px 12px; margin-bottom: 10px;
   }
-  .sheet input:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(88,166,255,.14); }
+  .sheet input:focus { outline: none; border-color: var(--accent-2); }
 
   #summaryView {
     position: fixed; inset: 0; z-index: 90; background: var(--bg);
-    display: flex; flex-direction: column; padding: calc(var(--safe-t) + 14px) 0 0;
+    display: flex; flex-direction: column; padding: calc(var(--safe-t) + 12px) 0 0;
   }
-  #summaryView .sv-head { display: flex; align-items: center; gap: 10px; padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
-  #summaryView .sv-head h2 { margin: 0; font-size: 17px; font-weight: 650; flex: 1; }
+  #summaryView .sv-head { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; border-bottom: 1px solid var(--border); }
+  #summaryView .sv-head h2 { margin: 0; font-size: 16px; font-weight: 650; flex: 1; }
   #summaryView .sv-body {
-    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    padding: 16px; font-size: 15.5px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px;
+    font-size: 15px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word;
   }
-  #summaryView .sv-body h3 { margin: 22px 0 7px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--accent); }
+  #summaryView .sv-body h3 { margin: 20px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .09em; color: var(--accent); }
   #summaryView .sv-body h3:first-child { margin-top: 0; }
   #summaryView .sv-foot {
-    padding: 12px 16px calc(12px + var(--safe-b)); border-top: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: 9px; background: var(--surface);
+    padding: 10px 14px calc(10px + var(--safe-b)); border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px; background: var(--surface);
   }
-  .center-load { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 15px; }
-  .caret {
-    display: inline-block; width: 7px; height: 1.05em; background: var(--accent);
-    vertical-align: -2px; margin-left: 2px; animation: caret 1s steps(2) infinite;
+  .caret { display: inline-block; width: 6px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: pulse 1s steps(2) infinite; }
+  .icon-btn {
+    background: none; border: 1px solid var(--border); color: var(--dim); border-radius: 8px;
+    width: 34px; height: 34px; flex: none; font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
-  @keyframes caret { 50% { opacity: 0 } }
-  @media (prefers-reduced-motion: reduce) { .caret { animation: none } }
+  .center-load { text-align: center; color: var(--dim); padding: 36px 20px; font-size: 14px; }
 </style>
 </head>
-<body>
+<body class="pin-top">
+
+<div class="statusbar">
+  <span class="dot" id="dot"></span>
+  <span id="stateLabel">Prêt</span>
+  <span id="chrono">00:00</span>
+  <span class="sp"></span>
+  <span class="chip" id="engineChip" hidden></span>
+  <span id="lat"></span>
+  <button class="icon-btn" id="optBtn" aria-label="Options" style="width:28px;height:28px;font-size:13px">⚙</button>
+</div>
 
 <div class="msg err"  id="fatalMsg"></div>
 <div class="msg warn" id="micMsg"></div>
 <div class="msg info" id="resumeMsg"></div>
+
+<div id="optPanel" hidden>
+  <div class="opt"><span class="lbl">Afficher le « pourquoi »</span>
+    <button class="sw" id="swWhy" role="switch" aria-checked="true" aria-label="Afficher le pourquoi"></button></div>
+  <div class="opt"><span class="lbl">Question collée en haut</span>
+    <button class="sw" id="swPin" role="switch" aria-checked="true" aria-label="Question collée en haut"></button></div>
+  <div class="opt"><span class="lbl">Vibration</span>
+    <button class="sw" id="swVib" role="switch" aria-checked="false" aria-label="Vibration"></button></div>
+  <div class="opt"><span class="lbl">Inverser Moi / Client</span>
+    <button class="sw" id="swSwap" role="switch" aria-checked="false" aria-label="Inverser les locuteurs"></button></div>
+</div>
 
 <div class="topic-wrap" id="topicWrap">
   <textarea id="topic" rows="3" autocomplete="off"
     placeholder="Ex : cadrage du déploiement AppLocker avec le client — je veux obtenir le planning, le budget et les contraintes"></textarea>
   <div id="topicHint">Décris le sujet pour que les questions soient pertinentes</div>
 </div>
-<button id="topicBar" hidden><span class="pen">✎</span><span class="txt"></span></button>
+<button id="topicBar" hidden><span>✎</span><span class="txt"></span></button>
 
-<div class="listen-row">
-  <button id="listenBtn"><span class="ico">🎙</span><span id="listenLabel">Écouter</span></button>
-  <div class="meta">
-    <div class="live"><span class="dot" id="dot"></span><span id="liveLabel">Prêt</span></div>
-    <div id="chrono">00:00</div>
-  </div>
+<div id="askBanner" hidden><span class="lbl">Il vous demande</span><span id="askText"></span></div>
+
+<div id="nowWrap">
+  <div class="tier-label">▶ Maintenant</div>
+  <ul class="cards" id="nowList"></ul>
+  <div class="placeholder" id="nowPlaceholder">Décris le sujet : la première relance apparaîtra ici.</div>
 </div>
 
-<div class="sec-head">
-  <span class="ttl">Questions à poser</span>
-  <span id="analyzing"><span class="pulse">●</span> analyse…</span>
-  <span class="spacer"></span>
-  <button class="icon-btn" id="refreshQ" title="Analyser maintenant" aria-label="Analyser maintenant">↻</button>
-</div>
+<div class="tier-label" id="nextLabel" hidden>Ensuite</div>
+<ul class="cards" id="nextList"></ul>
 
-<ul class="qlist" id="qList"></ul>
-<div class="placeholder" id="qPlaceholder">Décris le sujet ci-dessus : trois questions d’ouverture apparaîtront ici.</div>
+<div class="tier-label" id="laterLabel" hidden>À aborder</div>
+<ul class="cards" id="laterList"></ul>
 
-<button class="fold-toggle" id="ansToggle" aria-expanded="false" hidden>
-  <span class="chev">▶</span><span class="tick">✓</span><span id="ansLabel">Réponses obtenues</span>
+<button class="fold" id="ansToggle" aria-expanded="false" hidden>
+  <span class="chev">▶</span><span id="ansLabel">Réponses obtenues</span>
 </button>
 <ul class="answers" id="ansList" hidden></ul>
 
-<details class="tr" id="trDetails">
-  <summary><span class="chev">▶</span><span>Voir la transcription</span><span class="count" id="trCount">0</span></summary>
-  <div id="transcript"></div>
-</details>
+<button class="fold" id="trToggle" aria-expanded="false">
+  <span class="chev">▶</span><span>Transcription</span><span class="n" id="trCount" style="margin-left:auto;color:var(--faint)">0</span>
+</button>
+<div id="transcript" hidden></div>
 
 <nav class="bar">
-  <button class="btn" id="endBtn" disabled>■ Terminer la réunion</button>
+  <button class="btn primary" id="listenBtn" disabled>🎙 Écouter</button>
+  <button class="btn" id="endBtn" disabled>■ Bilan</button>
 </nav>
 
 <div class="overlay" id="pwOverlay" hidden>
@@ -384,7 +364,7 @@
   <div class="sv-foot">
     <div class="btn-row">
       <button class="btn" id="copyBtn">📋 Copier</button>
-      <button class="btn" id="dlBtn">⬇ Télécharger .md</button>
+      <button class="btn" id="dlBtn">⬇ .md</button>
     </div>
     <button class="btn wide" id="newBtn">Nouvelle réunion</button>
   </div>
@@ -397,100 +377,122 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
-  function mmss(ms) {
+  const mmss = (ms) => {
     const t = Math.max(0, Math.floor(ms / 1000));
     return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
-  }
+  };
 
-  /* ----------------------- localStorage (try/catch) ---------------------- */
-  const LS_PW = 'mc.pw.v2';
-  const LS_TOPIC = 'mc.topic.v2';
-  const LS_MEETING = 'mc.meeting.v3';
+  const LS_PW = 'mc.pw.v2', LS_TOPIC = 'mc.topic.v2', LS_MEETING = 'mc.meeting.v4', LS_OPT = 'mc.opt.v1';
+  const lsGet = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+  const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) { /* ignoré */ } };
 
-  function lsGet(k) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
-  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
-  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { /* ignoré */ } }
-
-  /* ------------------------------- Réglages ------------------------------ */
-  const LIVE_MIN_INTERVAL = 12000;  // au plus 1 appel toutes les 12 s
-  const LIVE_MIN_NEW_CHARS = 80;    // …et seulement après ~80 nouveaux caractères
-  const LIVE_TAIL_CHARS = 4000;     // on n'envoie que la fin de la transcription
-  const TARGET_QUESTIONS = 3;
-  const MIN_TOPIC_CHARS = 10;      // sujet obligatoire
-  const ANSWER_HOLD_MS = 2000;      // la réponse reste lisible 2 s
-  const ANIM_MS = 300;
+  /* ------------------------------ Réglages ------------------------------- */
+  const MIN_TOPIC_CHARS  = 10;
+  const MIN_GAP_MS       = 2000;   // plafond de sécurité : 1 appel / 2 s
+  const INTERIM_DEBOUNCE = 1200;   // analyse sur texte intermédiaire
+  const NOW_MIN_MS       = 4000;   // la question MAINTENANT tient au moins 4 s
+  const ANSWER_HOLD_MS   = 1800;
+  const ANIM_MS          = 180;
+  const DIGEST_EVERY_MS  = 120000; // résumé roulant toutes les 2 min
+  const PING_EVERY_MS    = 240000; // préchauffage toutes les 4 min
+  const LAT_WINDOW       = 5;
+  const N_NEXT = 4, N_LATER = 3;
 
   /* -------------------------------- État --------------------------------- */
   const state = {
     listening: false, started: false, ended: false,
-    segments: [], interim: '',
-    questions: [],        // actives  : { id, text, at }
-    answers: [],          // répondues: { id, text, answer, at }
-    retired: [],          // textes des questions devenues obsolètes (anti-doublon)
+    segments: [],            // { t, who:'me'|'them', text }
+    interim: '', interimSp: null,
+    now: null, next: [], later: [],   // { id, text, why, at }
+    answers: [], retired: [],
+    ask: '',
+    digest: '', digestAt: 0,
     elapsedMs: 0, lastResume: 0,
-    chronoTimer: null, liveTimer: null, restartTimer: null,
-    wakeLock: null, recognition: null,
-    manualStop: false, errorStreak: 0,
-    liveLoading: false, livePending: false, lastCallAt: 0, lastChars: 0,
-    summaryText: '', password: '', supported: false, topicCollapsed: false
+    chronoTimer: null, pingTimer: null, digestTimer: null, gapTimer: null, interimTimer: null,
+    wakeLock: null,
+    inflight: null, lastStart: 0, lastAnalyzedLen: 0,
+    latencies: [],
+    summaryText: '', password: '',
+    engine: null,            // 'deepgram' | 'webspeech' | null
+    topicCollapsed: false
   };
-
   let qSeq = 0;
   const nextId = () => 'q' + (++qSeq);
 
-  /* ============================ MOT DE PASSE ============================= */
-  let pwResolve = null;
+  /* ------------------------------- Options ------------------------------- */
+  const opt = Object.assign({ why: true, pin: true, vib: false, swap: false }, lsGet(LS_OPT) || {});
 
+  function applyOptions() {
+    document.body.classList.toggle('hide-why', !opt.why);
+    document.body.classList.toggle('pin-top', !!opt.pin);
+    $('swWhy').setAttribute('aria-checked', String(!!opt.why));
+    $('swPin').setAttribute('aria-checked', String(!!opt.pin));
+    $('swVib').setAttribute('aria-checked', String(!!opt.vib));
+    $('swSwap').setAttribute('aria-checked', String(!!opt.swap));
+  }
+  function bindSwitch(id, key, after) {
+    $(id).addEventListener('click', () => {
+      opt[key] = !opt[key];
+      lsSet(LS_OPT, opt);
+      applyOptions();
+      if (after) after();
+    });
+  }
+  bindSwitch('swWhy', 'why');
+  bindSwitch('swPin', 'pin');
+  bindSwitch('swVib', 'vib');
+  bindSwitch('swSwap', 'swap', () => renderTranscript());
+  $('optBtn').addEventListener('click', () => { $('optPanel').hidden = !$('optPanel').hidden; });
+
+  const buzz = () => { if (opt.vib) { try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* ignoré */ } } };
+
+  /* ---------------------------- Mot de passe ----------------------------- */
+  let pwResolve = null;
   function askPassword(reason) {
-    $('pwText').textContent = reason ||
-      'Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.';
-    $('pwErr').innerHTML = '';
-    $('pwInput').value = '';
+    $('pwText').textContent = reason || 'Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.';
+    $('pwErr').innerHTML = ''; $('pwInput').value = '';
     $('pwOverlay').hidden = false;
     setTimeout(() => $('pwInput').focus(), 80);
     return new Promise((resolve) => { pwResolve = resolve; });
   }
-
   function submitPassword() {
     const v = $('pwInput').value;
     if (!v) { $('pwErr').textContent = 'Saisis un mot de passe.'; return; }
-    state.password = v;
-    lsSet(LS_PW, v);
+    state.password = v; lsSet(LS_PW, v);
     $('pwOverlay').hidden = true;
     if (pwResolve) { const r = pwResolve; pwResolve = null; r(v); }
   }
   $('pwBtn').addEventListener('click', submitPassword);
   $('pwInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitPassword(); } });
 
-  /* ============================== APPELS API ============================= */
-  // Réponse diffusée en SSE : onDelta reçoit le texte au fil de l'eau,
-  // la promesse se résout sur l'objet « done », source de vérité.
-  async function callApi(payload, onDelta, allowRetry) {
+  /* ------------------------------ Appels API ----------------------------- */
+  // Renvoie l'objet « done ». onDelta reçoit le texte au fil de l'eau.
+  // signal permet d'annuler : stratégie « le plus récent gagne ».
+  async function callApi(payload, onDelta, signal, allowRetry) {
     if (!state.password) {
       await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
     }
     let res;
     try {
       res = await fetch('/api/claude', {
-        method: 'POST',
+        method: 'POST', signal,
         headers: { 'Content-Type': 'application/json', 'x-app-password': state.password },
         body: JSON.stringify(Object.assign({ topic: topicValue() }, payload))
       });
     } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
       throw new Error('Serveur injoignable — vérifie ta connexion.');
     }
 
     if (res.status === 401) {
-      state.password = '';
-      lsDel(LS_PW);
+      state.password = ''; lsDel(LS_PW);
       if (allowRetry !== false) {
         await askPassword('Mot de passe refusé. Saisis celui défini dans APP_PASSWORD sur Vercel.');
-        return callApi(payload, onDelta, false);
+        return callApi(payload, onDelta, signal, false);
       }
       throw new Error('Mot de passe refusé.');
     }
-
     if (!res.ok) {
       let data = null;
       try { data = await res.json(); } catch (e) { /* non JSON */ }
@@ -499,7 +501,6 @@
       throw err;
     }
 
-    // Le serveur peut répondre en JSON simple (cas dégradé) plutôt qu'en SSE.
     const ctype = res.headers.get('content-type') || '';
     if (ctype.indexOf('text/event-stream') === -1 || !res.body) {
       const data = await res.json().catch(() => null);
@@ -509,7 +510,7 @@
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buf = '', result = null, streamError = null;
+    let buf = '', result = null, streamError = null, firstDelta = true;
 
     for (;;) {
       const chunk = await reader.read();
@@ -523,8 +524,11 @@
         if (!ev || !raw) continue;
         let data = null;
         try { data = JSON.parse(raw); } catch (e) { continue; }
-        if (ev === 'delta' && onDelta) onDelta(data.t || '');
-        else if (ev === 'done') result = data;
+        if (ev === 'delta') {
+          if (firstDelta) { firstDelta = false; if (onDelta) onDelta('', true); }
+          if (onDelta) onDelta(data.t || '');
+        } else if (ev === 'done') result = data;
+        else if (ev === 'usage') state.lastUsage = data;
         else if (ev === 'error') streamError = data.error;
       }
     }
@@ -533,15 +537,49 @@
     return result;
   }
 
-  /* ============================ TRANSCRIPTION =========================== */
+  /* ------------------------------- Latence ------------------------------- */
+  function recordLatency(ms) {
+    state.latencies.push(ms);
+    if (state.latencies.length > LAT_WINDOW) state.latencies.shift();
+    const avg = state.latencies.reduce((a, b) => a + b, 0) / state.latencies.length;
+    $('lat').textContent = '⚡ ' + (avg / 1000).toFixed(1) + ' s';
+  }
+
+  /* ========================== TRANSCRIPTION ============================== */
   const transcriptEl = $('transcript');
   let interimEl = null;
 
   const elapsedNow = () => state.elapsedMs + (state.listening ? Date.now() - state.lastResume : 0);
-  const fullText = () => state.segments.map((s) => '[' + mmss(s.t) + '] ' + s.text).join('\n');
-  const tailText = () => fullText().slice(-LIVE_TAIL_CHARS);
-  const plainChars = () => state.segments.reduce((n, s) => n + s.text.length, 0);
-  const nearBottom = () => transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight < 60;
+  const speakerLabel = (who) => (who === 'me' ? 'Moi' : 'Client');
+
+  // Deepgram numérote les locuteurs (0, 1…). Le premier entendu est « Moi »
+  // par défaut — c'est en général vous qui ouvrez. L'option « Inverser
+  // Moi / Client » corrige d'un geste si la réunion commence autrement.
+  let firstSpeaker = null;
+  function noteSpeaker(n) {
+    if (n === null || n === undefined) return null;
+    if (firstSpeaker === null) firstSpeaker = n;
+    return n;
+  }
+  // Résolu à l'affichage : inverser Moi/Client corrige TOUTE la transcription,
+  // y compris les passages déjà écrits.
+  function whoOf(sp) {
+    if (sp === null || sp === undefined) return 'them';
+    const isFirst = sp === firstSpeaker;
+    return (isFirst !== !!opt.swap) ? 'me' : 'them';
+  }
+
+  function fullText() {
+    return state.segments.map((s) => '[' + mmss(s.t) + '] ' + speakerLabel(whoOf(s.sp)) + ' : ' + s.text).join('\n');
+  }
+  function liveText() {
+    const tail = state.segments.slice(-60)
+      .map((s) => speakerLabel(whoOf(s.sp)) + ' : ' + s.text).join('\n');
+    // Le texte encore en cours est marqué : l'IA anticipe où va la phrase.
+    return state.interim
+      ? tail + '\n' + speakerLabel(whoOf(state.interimSp)) + ' [EN COURS] : ' + state.interim
+      : tail;
+  }
 
   function initTranscriptDom() {
     transcriptEl.innerHTML = '';
@@ -550,162 +588,254 @@
     interimEl.style.display = 'none';
     transcriptEl.appendChild(interimEl);
   }
-
-  function segmentNode(seg) {
+  function segNode(s) {
+    const who = whoOf(s.sp);
     const p = document.createElement('p');
-    p.innerHTML = '<span class="ts">[' + mmss(seg.t) + ']</span>' + esc(seg.text);
+    p.innerHTML = '<span class="ts">[' + mmss(s.t) + ']</span>' +
+      '<span class="who ' + who + '">' + speakerLabel(who) + ' :</span>' + esc(s.text);
     return p;
   }
-
-  function addSegment(text) {
-    const clean = text.replace(/\s+/g, ' ').trim();
-    if (!clean) return;
-    const seg = { t: elapsedNow(), text: clean };
-    state.segments.push(seg);
-    const stick = nearBottom();
-    transcriptEl.insertBefore(segmentNode(seg), interimEl);
-    if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
-    $('trCount').textContent = state.segments.length;
-    persist();
-    maybeAnalyze();          // une phrase finale vient d'arriver
-  }
-
-  function setInterim(text) {
-    state.interim = text;
-    if (!interimEl) return;
-    if (text) {
-      const stick = nearBottom();
-      interimEl.textContent = text;
-      interimEl.style.display = '';
-      if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
-    } else {
-      interimEl.textContent = '';
-      interimEl.style.display = 'none';
-    }
-  }
-
   function renderTranscript() {
     initTranscriptDom();
     const frag = document.createDocumentFragment();
-    state.segments.forEach((s) => frag.appendChild(segmentNode(s)));
+    state.segments.forEach((s) => frag.appendChild(segNode(s)));
     transcriptEl.insertBefore(frag, interimEl);
     transcriptEl.scrollTop = transcriptEl.scrollHeight;
     $('trCount').textContent = state.segments.length;
   }
 
-  /* ====================== QUESTIONS : rendu & animations ================= */
-  const qList = $('qList');
-
-  function cardNode(q) {
-    const li = document.createElement('li');
-    li.dataset.id = q.id;
-    li.innerHTML =
-      '<span class="qmark">✓</span>' +
-      '<div class="qtext">' + esc(q.text) + '</div>' +
-      (q.why ? '<div class="qwhy"><span class="bulb">💡</span><span>' + esc(q.why) + '</span></div>' : '') +
-      '<div class="qanswer"></div>';
-    return li;
+  function addSegment(text, sp) {
+    const clean = text.replace(/\s+/g, ' ').trim();
+    if (!clean) return;
+    const seg = { t: elapsedNow(), sp: (sp === undefined ? null : sp), text: clean };
+    state.segments.push(seg);
+    const stick = transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight < 60;
+    transcriptEl.insertBefore(segNode(seg), interimEl);
+    if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    $('trCount').textContent = state.segments.length;
+    persist();
+    // Le client vient de poser une question → relance immédiate.
+    if (whoOf(seg.sp) === 'them' && /\?/.test(seg.text)) requestAnalyze('question');
   }
 
-  const cardById = (id) => qList.querySelector('li[data-id="' + id + '"]');
-
-  function addCard(q, animate) {
-    const li = cardNode(q);
-    if (animate) li.classList.add('entering');
-    qList.appendChild(li);
-    if (animate) {
-      // Double rAF : la classe de départ doit être peinte avant d'être retirée.
-      requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('entering')));
+  function setInterim(text, sp) {
+    state.interim = text;
+    state.interimSp = (sp === undefined ? null : sp);
+    if (interimEl) {
+      if (text) {
+        interimEl.textContent = speakerLabel(whoOf(state.interimSp)) + ' : ' + text;
+        interimEl.style.display = '';
+        transcriptEl.scrollTop = transcriptEl.scrollHeight;
+      } else { interimEl.textContent = ''; interimEl.style.display = 'none'; }
     }
-    updatePlaceholder();
-  }
-
-  // Referme la carte en douceur : la hauteur passe à 0, les voisines ne sautent pas.
-  function collapseCard(li, done) {
-    if (!li || li.dataset.leaving) { if (done) done(); return; }
-    li.dataset.leaving = '1';
-    li.style.height = li.offsetHeight + 'px';
-    void li.offsetHeight;                      // force le reflow
-    li.classList.add('leaving');
-    setTimeout(() => { li.remove(); updatePlaceholder(); if (done) done(); }, ANIM_MS + 40);
-  }
-
-  function markAnswered(id, answer) {
-    const li = cardById(id);
-    if (!li) return;
-    const ans = li.querySelector('.qanswer');
-    if (ans) ans.textContent = answer;
-    li.classList.add('answered');
-    setTimeout(() => collapseCard(li), ANSWER_HOLD_MS);
-  }
-
-  function markObsolete(id) {
-    const li = cardById(id);
-    if (!li) return;
-    li.classList.add('obsolete');
-    setTimeout(() => collapseCard(li), ANIM_MS);
-  }
-
-  function updatePlaceholder() {
-    $('qPlaceholder').hidden = state.questions.length > 0 || qList.children.length > 0;
-  }
-
-  function renderQuestions() {
-    qList.innerHTML = '';
-    state.questions.forEach((q) => qList.appendChild(cardNode(q)));
-    updatePlaceholder();
-  }
-
-  /* ------------------------- Réponses obtenues --------------------------- */
-  function renderAnswers() {
-    const n = state.answers.length;
-    $('ansToggle').hidden = n === 0;
-    $('ansLabel').textContent = 'Réponses obtenues (' + n + ')';
-    $('ansList').innerHTML = state.answers.map((a) =>
-      '<li><div class="aq">' + esc(a.text) + '</div>' +
-      '<div class="aa">' + esc(a.answer) + '</div>' +
-      (a.why ? '<div class="aw">💡 ' + esc(a.why) + '</div>' : '') + '</li>'
-    ).join('');
-    if (n === 0) {
-      $('ansList').hidden = true;
-      $('ansToggle').setAttribute('aria-expanded', 'false');
-    } else {
-      $('ansList').hidden = $('ansToggle').getAttribute('aria-expanded') !== 'true';
+    // Analyse anticipée pendant que la phrase se construit.
+    clearTimeout(state.interimTimer);
+    if (text && state.listening) {
+      state.interimTimer = setTimeout(() => requestAnalyze('interim'), INTERIM_DEBOUNCE);
     }
   }
 
-  $('ansToggle').addEventListener('click', () => {
-    const open = $('ansToggle').getAttribute('aria-expanded') === 'true';
-    $('ansToggle').setAttribute('aria-expanded', open ? 'false' : 'true');
-    $('ansList').hidden = open;
-  });
+  /* ------------------------------ Deepgram ------------------------------- */
+  const DG_URL = 'wss://api.deepgram.com/v1/listen?' + [
+    'model=nova-3', 'language=fr', 'interim_results=true', 'smart_format=true',
+    'diarize=true', 'endpointing=300', 'utterance_end_ms=1000'
+  ].join('&');
 
-  /* ========================== CYCLE TEMPS RÉEL ========================== */
-  function setAnalyzing(on) { $('analyzing').classList.toggle('on', on); }
+  const dg = { ws: null, rec: null, stream: null, token: null, proto: 0, closing: false, retry: 0 };
 
-  function buzz() {
-    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { /* ignoré */ }
+  async function getDeepgramToken() {
+    if (!state.password) await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
+    const res = await fetch('/api/deepgram-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-app-password': state.password }
+    });
+    if (res.status === 401) { state.password = ''; lsDel(LS_PW); throw new Error('Mot de passe refusé.'); }
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.access_token) {
+      throw new Error((data && data.error) || 'Jeton Deepgram indisponible.');
+    }
+    return data.access_token;
   }
 
-  function knownTexts() {
-    return state.answers.map((a) => a.text)
-      .concat(state.retired)
-      .concat(state.questions.map((q) => q.text));
+  async function startDeepgram() {
+    dg.token = await getDeepgramToken();
+    dg.stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        // On capte des haut-parleurs : surtout ne pas filtrer la voix du client.
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: true
+      }
+    });
+    await openDeepgramSocket();
   }
 
-  // Comparaison tolérante : accents, ponctuation et casse ignorés.
-  function normKey(s) {
-    return String(s).toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9 ]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  // L'authentification WebSocket navigateur de Deepgram n'est pas documentée
+  // publiquement : on essaie « bearer » puis « token ». Le premier qui tient
+  // est mémorisé pour les reconnexions.
+  const DG_PROTOCOLS = [['bearer', 'token'], ['token', 'token']];
+
+  function openDeepgramSocket() {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const scheme = DG_PROTOCOLS[dg.proto] ? DG_PROTOCOLS[dg.proto][0] : 'bearer';
+      let ws;
+      try { ws = new WebSocket(DG_URL, [scheme, dg.token]); }
+      catch (e) { reject(e); return; }
+      dg.ws = ws;
+
+      const failOpen = setTimeout(() => {
+        if (!settled) { settled = true; try { ws.close(); } catch (e) {} reject(new Error('Deepgram : délai dépassé.')); }
+      }, 8000);
+
+      ws.onopen = () => {
+        clearTimeout(failOpen);
+        if (settled) return;
+        settled = true;
+        dg.retry = 0;
+        startRecorder();
+        resolve();
+      };
+
+      ws.onmessage = (ev) => {
+        let m = null;
+        try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.type === 'UtteranceEnd') { requestAnalyze('utterance'); return; }
+        if (m.type !== 'Results' || !m.channel || !m.channel.alternatives) return;
+        const alt = m.channel.alternatives[0];
+        if (!alt || !alt.transcript) return;
+        const words = alt.words || [];
+        const sp = noteSpeaker(words.length ? words[0].speaker : null);
+        if (m.is_final) { setInterim('', sp); addSegment(alt.transcript, sp); }
+        else setInterim(alt.transcript, sp);
+      };
+
+      ws.onerror = () => { /* onclose fera le travail */ };
+
+      ws.onclose = (ev) => {
+        clearTimeout(failOpen);
+        stopRecorder();
+        if (!settled) {
+          settled = true;
+          // Échec à l'ouverture : on tente l'autre convention d'authentification.
+          if (dg.proto + 1 < DG_PROTOCOLS.length) {
+            dg.proto++;
+            openDeepgramSocket().then(resolve, reject);
+          } else {
+            reject(new Error('Deepgram a refusé la connexion (code ' + ev.code + ').'));
+          }
+          return;
+        }
+        if (dg.closing || !state.listening) return;
+        // Reconnexion transparente, avec un jeton frais.
+        dg.retry++;
+        const delay = Math.min(500 * dg.retry, 5000);
+        setTimeout(async () => {
+          if (!state.listening || dg.closing) return;
+          try { dg.token = await getDeepgramToken(); await openDeepgramSocket(); }
+          catch (e) {
+            if (dg.retry > 4) { showMsg('micMsg', 'Transcription interrompue — bascule sur le moteur du navigateur.', 6000); fallbackToWebSpeech(); }
+          }
+        }, delay);
+      };
+    });
   }
 
-  // Un quasi-doublon (« la date de livraison » vs « la date de livraison du
-  // lot 2 ») est écarté : si l'une des formulations contient l'autre, c'est
-  // la même question.
-  function isDuplicate(text, keys) {
+  function startRecorder() {
+    if (!dg.stream || dg.rec) return;
+    let mime = '';
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+    for (const c of candidates) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported(c)) { mime = c; break; }
+    }
+    try { dg.rec = new MediaRecorder(dg.stream, mime ? { mimeType: mime } : undefined); }
+    catch (e) { dg.rec = null; return; }
+    dg.rec.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0 && dg.ws && dg.ws.readyState === 1) dg.ws.send(e.data);
+    };
+    dg.rec.start(250);   // tranches de 250 ms
+  }
+  function stopRecorder() {
+    if (dg.rec) { try { dg.rec.stop(); } catch (e) { /* ignoré */ } dg.rec = null; }
+  }
+  function stopDeepgram() {
+    dg.closing = true;
+    stopRecorder();
+    if (dg.ws) { try { dg.ws.close(); } catch (e) { /* ignoré */ } dg.ws = null; }
+    if (dg.stream) { dg.stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); dg.stream = null; }
+    dg.closing = false;
+  }
+
+  /* -------------------- Repli : Web Speech API --------------------------- */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const ws = { rec: null, manualStop: false, restartTimer: null, errStreak: 0 };
+
+  function buildWebSpeech() {
+    const rec = new SR();
+    rec.lang = 'fr-FR'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+    rec.onresult = (event) => {
+      ws.errStreak = 0;
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        const txt = r[0] ? r[0].transcript : '';
+        // Sans diarisation, tout est attribué au client (le plus utile).
+        if (r.isFinal) addSegment(txt, null); else interim += txt;
+      }
+      setInterim(interim.trim(), null);
+    };
+    rec.onerror = (event) => {
+      const e = event.error;
+      if (e === 'not-allowed' || e === 'service-not-allowed') {
+        stopListening();
+        showMsg('micMsg', '<b>Accès au micro refusé.</b> Autorise le microphone, puis réappuie sur Écouter.<br>iOS : Réglages → Safari → Microphone. Android : ⓘ dans la barre d’adresse → Autorisations.');
+        return;
+      }
+      if (e === 'audio-capture') { stopListening(); showMsg('micMsg', '<b>Micro introuvable.</b>'); return; }
+      if (e === 'no-speech' || e === 'aborted') return;
+      ws.errStreak++;
+    };
+    rec.onend = () => {
+      if (!state.listening || ws.manualStop) return;
+      const delay = ws.errStreak > 3 ? Math.min(400 * ws.errStreak, 5000) : 250;
+      clearTimeout(ws.restartTimer);
+      ws.restartTimer = setTimeout(() => {
+        if (!state.listening || ws.manualStop) return;
+        try { rec.start(); } catch (e) { /* déjà active */ }
+      }, delay);
+    };
+    return rec;
+  }
+
+  function fallbackToWebSpeech() {
+    if (!SR) {
+      showMsg('fatalMsg', '<b>Transcription indisponible.</b> Deepgram n’est pas joignable et ce navigateur ne gère pas la reconnaissance vocale. Ouvre la page dans Chrome (Android) ou Safari (iOS).');
+      stopListening();
+      return false;
+    }
+    stopDeepgram();
+    state.engine = 'webspeech';
+    setEngineChip();
+    ws.manualStop = false;
+    if (!ws.rec) ws.rec = buildWebSpeech();
+    try { ws.rec.start(); } catch (e) { /* déjà active */ }
+    return true;
+  }
+
+  function setEngineChip() {
+    const chip = $('engineChip');
+    if (!state.engine) { chip.hidden = true; return; }
+    chip.hidden = false;
+    chip.textContent = state.engine === 'deepgram' ? 'Deepgram nova-3' : 'navigateur';
+    chip.classList.toggle('live', state.engine === 'deepgram');
+  }
+
+  /* ===================== QUESTIONS : 3 NIVEAUX, DIFF ===================== */
+  const normKey = (s) => String(s).toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  function isDup(text, keys) {
     const k = normKey(text);
     if (k.length < 4) return true;
     for (let i = 0; i < keys.length; i++) {
@@ -716,178 +846,282 @@
     return false;
   }
 
-  // Ajoute une question si elle n'existe pas déjà. Utilisée à la fois par le
-  // flux (au fil de l'eau) et par l'événement final : le doublon est écarté,
-  // donc une question affichée pendant le streaming n'est jamais ajoutée deux fois.
-  function addQuestionIfNew(item) {
-    if (state.questions.length >= TARGET_QUESTIONS) return false;
-    const q = normalizeIncoming(item);
-    if (!q) return false;
-    if (isDuplicate(q.question, knownTexts().map(normKey))) return false;
-    const entry = { id: nextId(), text: q.question, why: q.why, at: Date.now() };
-    state.questions.push(entry);
-    addCard(entry, true);
-    return true;
+  const allActive = () => (state.now ? [state.now] : []).concat(state.next, state.later);
+  const knownKeys = () => allActive().map((q) => normKey(q.text))
+    .concat(state.answers.map((a) => normKey(a.text)))
+    .concat(state.retired.map(normKey));
+
+  // Réutilise l'id d'une question déjà connue : les cartes inchangées
+  // ne bougent pas à l'écran.
+  function reuseOrCreate(item, pool) {
+    const text = String(item && (item.question || item.text) || '').trim();
+    if (text.length < 4) return null;
+    const k = normKey(text);
+    for (let i = 0; i < pool.length; i++) {
+      const p = pool[i];
+      const pk = normKey(p.text);
+      if (pk === k || pk.indexOf(k) !== -1 || k.indexOf(pk) !== -1) {
+        if (item && item.why) p.why = String(item.why).trim();
+        return p;
+      }
+    }
+    return { id: nextId(), text: text, why: String((item && item.why) || '').trim(), at: Date.now() };
   }
 
-  function normalizeIncoming(item) {
-    if (typeof item === 'string') {
-      const t = item.trim();
-      return t.length > 3 ? { question: t, why: '' } : null;
-    }
-    if (!item || typeof item !== 'object') return null;
-    const question = String(item.question || item.text || '').trim();
-    const why = String(item.why || '').trim();
-    return question.length > 3 ? { question: question, why: why } : null;
+  function cardNode(q, tier) {
+    const li = document.createElement('li');
+    li.dataset.id = q.id;
+    li.innerHTML = '<div class="q">' + esc(q.text) + '</div>' +
+      (tier === 'now' ? '<div class="why">' + (q.why ? '💡 <span>' + esc(q.why) + '</span>' : '') + '</div>' : '') +
+      '<div class="ans"></div>';
+    return li;
+  }
+
+  function leaveCard(li, cls) {
+    if (!li || li.dataset.leaving) return;
+    li.dataset.leaving = '1';
+    if (cls) li.classList.add(cls);
+    li.style.height = li.offsetHeight + 'px';
+    void li.offsetHeight;
+    li.classList.add('leaving');
+    setTimeout(() => li.remove(), ANIM_MS + 40);
+  }
+
+  // Rendu par diff : on ne touche que ce qui change.
+  function renderTier(listEl, items, tier) {
+    const present = {};
+    Array.prototype.forEach.call(listEl.children, (el) => {
+      // Une carte en cours de sortie, ou qui affiche sa réponse pendant ses
+      // 2 secondes de lecture, n'est pas gérée par le diff : elle se retire seule.
+      if (!el.dataset.leaving && !el.dataset.holding) present[el.dataset.id] = el;
+    });
+    const wanted = {};
+    items.forEach((q) => { wanted[q.id] = true; });
+
+    Object.keys(present).forEach((id) => { if (!wanted[id]) leaveCard(present[id]); });
+
+    let cursor = null;
+    items.forEach((q) => {
+      let el = present[q.id];
+      if (!el) {
+        el = cardNode(q, tier);
+        el.classList.add('entering');
+        listEl.appendChild(el);
+        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('entering')));
+      } else {
+        const qEl = el.querySelector('.q');
+        if (qEl && qEl.textContent !== q.text) qEl.textContent = q.text;
+        if (tier === 'now') {
+          const w = el.querySelector('.why');
+          const want = q.why ? '💡 ' + q.why : '';
+          if (w && w.textContent !== want) w.innerHTML = q.why ? '💡 <span>' + esc(q.why) + '</span>' : '';
+        }
+      }
+      // Ordre : on place la carte après la précédente si besoin.
+      const after = cursor ? cursor.nextSibling : listEl.firstChild;
+      if (after !== el) listEl.insertBefore(el, after);
+      cursor = el;
+    });
+  }
+
+  function renderQuestions() {
+    renderTier($('nowList'), state.now ? [state.now] : [], 'now');
+    renderTier($('nextList'), state.next, 'next');
+    renderTier($('laterList'), state.later, 'later');
+    $('nowPlaceholder').hidden = !!state.now;
+    $('nextLabel').hidden = state.next.length === 0;
+    $('laterLabel').hidden = state.later.length === 0;
+  }
+
+  function renderAnswers() {
+    const n = state.answers.length;
+    $('ansToggle').hidden = n === 0;
+    $('ansLabel').textContent = 'Réponses obtenues (' + n + ')';
+    $('ansList').innerHTML = state.answers.map((a) =>
+      '<li><div class="aq">' + esc(a.text) + '</div><div class="aa">' + esc(a.answer) + '</div>' +
+      (a.why ? '<div class="aw">💡 ' + esc(a.why) + '</div>' : '') + '</li>').join('');
+    if (n === 0) { $('ansList').hidden = true; $('ansToggle').setAttribute('aria-expanded', 'false'); }
+    else $('ansList').hidden = $('ansToggle').getAttribute('aria-expanded') !== 'true';
+  }
+
+  function fold(btnId, listId) {
+    $(btnId).addEventListener('click', () => {
+      const open = $(btnId).getAttribute('aria-expanded') === 'true';
+      $(btnId).setAttribute('aria-expanded', open ? 'false' : 'true');
+      $(listId).hidden = open;
+    });
+  }
+  fold('ansToggle', 'ansList');
+  fold('trToggle', 'transcript');
+
+  function removeById(id) {
+    if (state.now && state.now.id === id) { const q = state.now; state.now = null; return q; }
+    let i = state.next.findIndex((q) => q.id === id);
+    if (i !== -1) return state.next.splice(i, 1)[0];
+    i = state.later.findIndex((q) => q.id === id);
+    if (i !== -1) return state.later.splice(i, 1)[0];
+    return null;
   }
 
   function applyLive(data) {
     const answered = Array.isArray(data.answered) ? data.answered : [];
     const obsolete = Array.isArray(data.obsolete) ? data.obsolete : [];
-    const fresh = Array.isArray(data.new) ? data.new : [];
+    let touched = false;
 
-    // 1. Répondues : coche + réponse affichée, puis la carte se retire.
+    // 1. Répondues : coche verte + réponse, puis retrait.
     answered.forEach((a) => {
-      const q = state.questions.find((x) => x.id === a.id);
+      const q = removeById(a.id);
       if (!q) return;
-      state.questions = state.questions.filter((x) => x.id !== a.id);
       state.answers.push({ id: q.id, text: q.text, why: q.why || '', answer: a.answer, at: Date.now() });
-      markAnswered(a.id, a.answer);
+      const li = document.querySelector('li[data-id="' + a.id + '"]');
+      if (li) {
+        // « holding » met la carte hors du diff le temps qu'on lise la réponse.
+        li.dataset.holding = '1';
+        li.classList.add('answered');
+        const ans = li.querySelector('.ans');
+        if (ans) ans.textContent = a.answer;
+        setTimeout(() => leaveCard(li), ANSWER_HOLD_MS);
+      }
+      touched = true;
     });
 
     // 2. Obsolètes : fondu discret.
     obsolete.forEach((id) => {
-      const q = state.questions.find((x) => x.id === id);
+      const q = removeById(id);
       if (!q) return;
-      state.questions = state.questions.filter((x) => x.id !== id);
       state.retired.push(q.text);
-      markObsolete(id);
+      const li = document.querySelector('li[data-id="' + id + '"]');
+      if (li) { li.dataset.holding = '1'; li.classList.add('obsolete'); setTimeout(() => leaveCard(li), ANIM_MS); }
+      touched = true;
     });
 
-    // 3. Nouvelles : on complète jusqu'à TARGET_QUESTIONS, sans doublon.
-    let added = 0;
-    fresh.forEach((item) => { if (addQuestionIfNew(item)) added++; });
+    // 3. Bandeau « il vous demande ».
+    const ask = String(data.ask || '').trim();
+    if (ask && ask !== state.ask) {
+      state.ask = ask;
+      $('askText').textContent = ask;
+      $('askBanner').hidden = false;
+      touched = true;
+    } else if (!ask && state.ask) {
+      state.ask = '';
+      $('askBanner').hidden = true;
+    }
 
-    if (answered.length) renderAnswers();
-    if (added) buzz();
-    if (answered.length || obsolete.length || added) persist();
-  }
+    const pool = allActive();
 
-  // Parcourt le texte accumulé et renvoie les objets JSON complets qu'il
-  // contient (conscient des chaînes et des échappements). Une question est
-  // affichée dès que son objet est refermé, sans attendre la fin du flux.
-  function scanCompleteObjects(buf) {
-    const out = [];
-    const stack = [];
-    let inStr = false, escaped = false;
-    for (let i = 0; i < buf.length; i++) {
-      const c = buf[i];
-      if (inStr) {
-        if (escaped) escaped = false;
-        else if (c === '\\') escaped = true;
-        else if (c === '"') inStr = false;
-        continue;
-      }
-      if (c === '"') { inStr = true; continue; }
-      // Une pile, pas un simple compteur : les questions sont IMBRIQUÉES dans
-      // l'enveloppe, qui ne se referme qu'à la fin du flux. Chaque accolade
-      // fermée livre son objet, quel que soit son niveau.
-      if (c === '{') stack.push(i);
-      else if (c === '}') {
-        const start = stack.pop();
-        if (start !== undefined) {
-          try { out.push(JSON.parse(buf.slice(start, i + 1))); } catch (e) { /* incomplet */ }
-        }
+    // 4. MAINTENANT — stabilité : on ne remplace pas avant 4 s, sauf si l'IA
+    //    juge la nouvelle nettement meilleure ou si l'ancienne a été répondue.
+    if (data.now) {
+      const incoming = reuseOrCreate(data.now, pool);
+      if (incoming) {
+        const cur = state.now;
+        const locked = cur && !data.replaceNow && (Date.now() - cur.at) < NOW_MIN_MS;
+        if (!cur) { state.now = incoming; incoming.at = Date.now(); touched = true; buzz(); }
+        else if (cur.id === incoming.id) { cur.why = incoming.why || cur.why; }
+        else if (locked) {
+          // On garde l'affichage, la relance proposée bascule en « Ensuite ».
+          if (!isDup(incoming.text, knownKeys())) state.next.unshift(incoming);
+        } else { state.now = incoming; incoming.at = Date.now(); touched = true; buzz(); }
       }
     }
-    return out;   // ordre de fermeture : le préfixe reste stable quand le flux grandit
+
+    // 5. ENSUITE / À ABORDER — fusion en conservant les ids.
+    const merge = (incomingList, cap, current) => {
+      const out = [];
+      const keys = [];
+      if (state.now) keys.push(normKey(state.now.text));
+      (Array.isArray(incomingList) ? incomingList : []).forEach((item) => {
+        if (out.length >= cap) return;
+        const q = reuseOrCreate(item, current.concat(pool));
+        if (!q) return;
+        const k = normKey(q.text);
+        if (keys.indexOf(k) !== -1) return;
+        keys.push(k);
+        out.push(q);
+      });
+      // On complète avec les questions déjà présentes non reprises.
+      current.forEach((q) => {
+        if (out.length >= cap) return;
+        const k = normKey(q.text);
+        if (keys.indexOf(k) !== -1) return;
+        keys.push(k); out.push(q);
+      });
+      return out;
+    };
+
+    if (Array.isArray(data.next) && data.next.length) state.next = merge(data.next, N_NEXT, state.next);
+    else state.next = state.next.slice(0, N_NEXT);
+    if (Array.isArray(data.later) && data.later.length) state.later = merge(data.later, N_LATER, state.later);
+    else state.later = state.later.slice(0, N_LATER);
+
+    renderQuestions();
+    if (answered.length) renderAnswers();
+    if (touched || answered.length || obsolete.length) persist();
+  }
+
+  /* ======================== CADENCE « LE PLUS RÉCENT GAGNE » ============= */
+  function requestAnalyze(reason) {
+    if (!topicOk()) return;
+    const wait = MIN_GAP_MS - (Date.now() - state.lastStart);
+    if (wait > 0) {
+      clearTimeout(state.gapTimer);
+      state.gapTimer = setTimeout(() => requestAnalyze(reason), wait + 15);
+      return;
+    }
+    clearTimeout(state.gapTimer);
+    runLive(reason);
   }
 
   async function runLive() {
-    state.liveLoading = true;
-    state.livePending = false;
-    const charsAtCall = plainChars();
-    setAnalyzing(true);
+    // Le plus récent gagne : l'appel en cours est abandonné.
+    if (state.inflight) { try { state.inflight.abort(); } catch (e) { /* ignoré */ } }
+    const controller = new AbortController();
+    state.inflight = controller;
+    state.lastStart = Date.now();
+    const t0 = Date.now();
+    let gotFirst = false;
 
-    let buf = '', consumed = 0, streamed = 0;
-    const onDelta = (t) => {
-      buf += t;
-      // Le 1er objet complet est l'enveloppe si elle est déjà refermée ;
-      // on ne retient que ceux qui portent une question.
-      const objs = scanCompleteObjects(buf);
-      for (let i = consumed; i < objs.length; i++) {
-        const o = objs[i];
-        if (o && typeof o === 'object' && (o.question || o.text)) {
-          if (addQuestionIfNew(o)) { streamed++; buzz(); }
-        }
-      }
-      consumed = objs.length;
+    const onDelta = (t, isFirst) => {
+      if (isFirst && !gotFirst) { gotFirst = true; recordLatency(Date.now() - t0); }
     };
 
     try {
       const data = await callApi({
         mode: 'live',
-        transcript: tailText(),
-        questions: state.questions.map((q) => ({ id: q.id, text: q.text })),
+        transcript: liveText(),
+        digest: state.digest,
+        questions: allActive().map((q) => ({ id: q.id, text: q.text })),
         answered: state.answers.map((a) => a.text).concat(state.retired)
-      }, onDelta);
-      // L'événement final fait autorité ; les questions déjà affichées
-      // pendant le flux sont écartées comme doublons.
-      applyLive(data || {});
-      state.lastChars = charsAtCall;
+      }, onDelta, controller.signal);
+      if (state.inflight === controller) applyLive(data || {});
     } catch (e) {
-      // En réunion, une erreur d'analyse ne doit rien casser à l'écran.
-      state.lastChars = charsAtCall;
-      if (streamed) { renderAnswers(); persist(); }
+      // Une annulation est normale ; une erreur ne doit rien casser à l'écran.
+      if (!e || e.name !== 'AbortError') { /* silencieux en réunion */ }
     } finally {
-      state.lastCallAt = Date.now();
-      state.liveLoading = false;
-      setAnalyzing(false);
-      if (state.livePending) {
-        state.livePending = false;
-        setTimeout(maybeAnalyze, 50);
-      }
+      if (state.inflight === controller) state.inflight = null;
     }
   }
 
-  // Un appel part quand : phrase finale transcrite + ~80 nouveaux caractères
-  // + 12 s depuis le dernier appel. Jamais deux en parallèle.
-  let gateTimer = null;
-
-  function maybeAnalyze(force) {
-    if (!topicOk()) return;                       // le sujet est la base de tout
-    if (state.liveLoading) { state.livePending = true; return; }
-    const chars = plainChars();
-    if (!force) {
-      if (!state.listening) return;
-      if (chars - state.lastChars < LIVE_MIN_NEW_CHARS) return;
-      const wait = LIVE_MIN_INTERVAL - (Date.now() - state.lastCallAt);
-      if (wait > 0) {
-        // Le texte est prêt mais la fenêtre n'est pas ouverte : on arme un
-        // rappel pour l'instant exact où elle s'ouvre, sans attendre le tick.
-        clearTimeout(gateTimer);
-        gateTimer = setTimeout(() => maybeAnalyze(), wait + 20);
-        return;
-      }
-    }
-    if (!force && chars < 40) return;
-    clearTimeout(gateTimer);
-    runLive();
+  /* --------------------- Résumé roulant (mémoire longue) ----------------- */
+  async function runDigest() {
+    if (!topicOk() || state.segments.length < 6) return;
+    try {
+      const data = await callApi({
+        mode: 'digest',
+        transcript: fullText(),
+        previous: state.digest
+      });
+      if (data && data.text) { state.digest = data.text.trim(); state.digestAt = Date.now(); persist(); }
+    } catch (e) { /* le digest est un bonus : jamais bloquant */ }
   }
 
-  $('refreshQ').addEventListener('click', () => maybeAnalyze(true));
-
-  // Prépare 3 questions d'ouverture dès que le sujet est défini, pour que
-  // l'écran ne soit jamais vide au démarrage. Une seule fois par sujet.
-  let prewarmedFor = '';
-  function prewarm() {
-    if (!topicOk()) return;
-    const key = normKey(topicValue());
-    if (key === prewarmedFor) return;
-    if (state.questions.length >= TARGET_QUESTIONS) return;
-    if (state.liveLoading || state.segments.length) return;
-    prewarmedFor = key;
-    runLive();
+  /* ------------------------------ Préchauffage --------------------------- */
+  function ping() {
+    fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-app-password': state.password || '' },
+      body: JSON.stringify({ mode: 'ping' })
+    }).catch(() => { /* sans conséquence */ });
   }
 
   function showMsg(id, html, hideMs) {
@@ -896,141 +1130,112 @@
     if (hideMs && html) setTimeout(() => { if (el.innerHTML === html) el.innerHTML = ''; }, hideMs);
   }
 
-  /* =========================== RECONNAISSANCE =========================== */
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  /* ============================== CONTRÔLES ============================== */
+  const topicValue = () => $('topic').value.trim();
+  const topicOk = () => topicValue().length >= MIN_TOPIC_CHARS;
 
-  function checkSupport() {
-    if (!SR) {
-      showMsg('fatalMsg',
-        '<b>Transcription indisponible sur ce navigateur.</b><br>' +
-        'Ouvre cette page dans <b>Chrome (Android)</b> ou <b>Safari (iOS)</b>. ' +
-        'Firefox et les navigateurs intégrés aux applications (Instagram, LinkedIn, Gmail) ' +
-        'ne gèrent pas la reconnaissance vocale.');
-      $('listenBtn').disabled = true;
-      return false;
-    }
-    if (!window.isSecureContext) {
-      showMsg('fatalMsg', '<b>Connexion non sécurisée.</b> Le micro exige HTTPS.');
-      $('listenBtn').disabled = true;
-      return false;
-    }
-    state.supported = true;
-    return true;
+  function updateTopicUi() {
+    const ok = topicOk();
+    $('listenBtn').disabled = !ok;
+    $('topicHint').classList.toggle('ready', ok);
+    $('topicHint').textContent = ok
+      ? 'Sujet défini — les questions serviront cet objectif.'
+      : 'Décris le sujet pour que les questions soient pertinentes';
   }
+  function setTopicCollapsed(c) {
+    state.topicCollapsed = c;
+    $('topicWrap').hidden = c;
+    $('topicBar').hidden = !c;
+    if (c) $('topicBar').querySelector('.txt').textContent = topicValue();
+  }
+  $('topicBar').addEventListener('click', () => { setTopicCollapsed(false); $('topic').focus(); });
+  $('topic').addEventListener('input', updateTopicUi);
+  $('topic').addEventListener('blur', () => {
+    updateTopicUi();
+    if (!topicOk()) return;
+    lsSet(LS_TOPIC, topicValue());
+    if (state.started) setTopicCollapsed(true);
+    else prewarm();
+  });
 
-  function buildRecognition() {
-    const rec = new SR();
-    rec.lang = 'fr-FR';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
-
-    rec.onresult = (event) => {
-      state.errorStreak = 0;
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const r = event.results[i];
-        const txt = r[0] ? r[0].transcript : '';
-        if (r.isFinal) addSegment(txt); else interim += txt;
-      }
-      setInterim(interim.trim());
-    };
-
-    rec.onerror = (event) => {
-      const err = event.error;
-      if (err === 'not-allowed' || err === 'service-not-allowed') {
-        stopListening();
-        showMsg('micMsg',
-          '<b>Accès au micro refusé.</b> Autorise le microphone pour ce site, puis réappuie sur Écouter.<br>' +
-          'iOS : Réglages → Safari → Microphone. Android : ⓘ dans la barre d’adresse → Autorisations.');
-        return;
-      }
-      if (err === 'audio-capture') {
-        stopListening();
-        showMsg('micMsg', '<b>Micro introuvable.</b> Vérifie qu’aucune autre app ne l’utilise.');
-        return;
-      }
-      if (err === 'no-speech' || err === 'aborted') return;
-      state.errorStreak++;
-    };
-
-    rec.onend = () => {
-      if (!state.listening || state.manualStop) return;
-      const delay = state.errorStreak > 3 ? Math.min(400 * state.errorStreak, 5000) : 250;
-      clearTimeout(state.restartTimer);
-      state.restartTimer = setTimeout(() => {
-        if (!state.listening || state.manualStop) return;
-        try { rec.start(); } catch (e) {
-          if (!/already/i.test(e && e.message ? e.message : '')) {
-            state.restartTimer = setTimeout(() => { try { rec.start(); } catch (e2) { /* ignoré */ } }, 1200);
-          }
-        }
-      }, delay);
-    };
-    return rec;
+  let prewarmedFor = '';
+  function prewarm() {
+    if (!topicOk() || state.now || state.inflight || state.segments.length) return;
+    const k = normKey(topicValue());
+    if (k === prewarmedFor) return;
+    prewarmedFor = k;
+    requestAnalyze('prewarm');
   }
 
   async function startListening() {
-    if (!state.supported) return;
     if (!topicOk()) { $('topic').focus(); return; }
-    if (!state.password) {
-      await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
-    }
-    showMsg('micMsg', '');
-    showMsg('resumeMsg', '');
-    state.manualStop = false;
-    state.errorStreak = 0;
-    if (!state.recognition) state.recognition = buildRecognition();
-    try { state.recognition.start(); }
-    catch (e) {
-      if (!/already/i.test(e && e.message ? e.message : '')) {
-        showMsg('micMsg', 'Démarrage du micro impossible : ' + esc(e.message || 'erreur inconnue'));
-        return;
-      }
-    }
+    if (!state.password) await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
+    showMsg('micMsg', ''); showMsg('resumeMsg', ''); showMsg('fatalMsg', '');
+
     state.listening = true;
     state.started = true;
     state.ended = false;
     state.lastResume = Date.now();
     startChrono();
     requestWakeLock();
-    clearInterval(state.liveTimer);
-    // Relance périodique : rattrape le cas « assez de texte, mais délai non écoulé ».
-    state.liveTimer = setInterval(() => maybeAnalyze(), 2000);
     $('endBtn').disabled = false;
     setTopicCollapsed(true);
     updateUi();
-    // Aucun écran vide : si le pré-chauffage n'a rien produit, on lance
-    // immédiatement un premier appel avec le sujet seul.
-    if (!state.questions.length) maybeAnalyze(true);
+
+    // Deepgram d'abord ; repli transparent sur le moteur du navigateur.
+    try {
+      await startDeepgram();
+      state.engine = 'deepgram';
+      setEngineChip();
+    } catch (e) {
+      const why = e && e.message ? e.message : 'indisponible';
+      if (/Mot de passe/.test(why)) { stopListening(); return; }
+      showMsg('micMsg', 'Deepgram indisponible (' + esc(why) + ') — bascule sur le moteur du navigateur.', 7000);
+      if (!fallbackToWebSpeech()) { stopListening(); return; }
+    }
+
+    clearInterval(state.digestTimer);
+    state.digestTimer = setInterval(runDigest, DIGEST_EVERY_MS);
+    if (!state.now) requestAnalyze('start');
     persist();
   }
 
   function stopListening() {
     if (state.listening) { state.elapsedMs = elapsedNow(); state.listening = false; }
-    state.manualStop = true;
-    clearTimeout(state.restartTimer);
-    clearTimeout(gateTimer);
-    clearInterval(state.liveTimer);
-    if (state.recognition) { try { state.recognition.stop(); } catch (e) { /* ignoré */ } }
-    setInterim('');
+    ws.manualStop = true;
+    clearTimeout(ws.restartTimer);
+    clearTimeout(state.interimTimer);
+    clearTimeout(state.gapTimer);
+    clearInterval(state.digestTimer);
+    if (ws.rec) { try { ws.rec.stop(); } catch (e) { /* ignoré */ } }
+    stopDeepgram();
+    setInterim('', null);
     stopChrono();
     releaseWakeLock();
     updateUi();
     persist();
   }
 
-  /* ============================ CHRONO / WAKE =========================== */
+  $('listenBtn').addEventListener('click', () => {
+    if (state.listening) stopListening(); else startListening();
+  });
+
+  function updateUi() {
+    $('dot').className = 'dot' + (state.listening ? ' rec' : (state.started && !state.ended ? ' paused' : ''));
+    $('stateLabel').textContent = state.listening ? 'Écoute'
+      : (state.ended ? 'Terminée' : (state.started ? 'Pause' : 'Prêt'));
+    $('listenBtn').classList.toggle('on', state.listening);
+    $('listenBtn').textContent = state.listening ? '⏸ Pause' : (state.started ? '🎙 Reprendre' : '🎙 Écouter');
+  }
+
+  /* ---------------------------- Chrono / Wake ---------------------------- */
   function startChrono() {
     clearInterval(state.chronoTimer);
     const tick = () => { $('chrono').textContent = mmss(elapsedNow()); };
     tick();
     state.chronoTimer = setInterval(tick, 1000);
   }
-  function stopChrono() {
-    clearInterval(state.chronoTimer);
-    $('chrono').textContent = mmss(elapsedNow());
-  }
+  function stopChrono() { clearInterval(state.chronoTimer); $('chrono').textContent = mmss(elapsedNow()); }
 
   async function requestWakeLock() {
     if (!('wakeLock' in navigator)) return;
@@ -1045,141 +1250,71 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && state.listening) {
       requestWakeLock();
-      if (state.recognition && !state.manualStop) {
-        try { state.recognition.start(); } catch (e) { /* déjà active */ }
+      if (state.engine === 'webspeech' && ws.rec && !ws.manualStop) {
+        try { ws.rec.start(); } catch (e) { /* déjà active */ }
       }
     }
   });
 
-  /* ================================ UI ================================== */
-  function updateUi() {
-    const dot = $('dot');
-    dot.className = 'dot' + (state.listening ? ' rec' : (state.started && !state.ended ? ' paused' : ''));
-    $('liveLabel').textContent = state.listening ? 'Écoute en cours'
-      : (state.ended ? 'Terminée' : (state.started ? 'En pause' : 'Prêt'));
-    $('listenBtn').classList.toggle('on', state.listening);
-    $('listenBtn').querySelector('.ico').textContent = state.listening ? '⏸' : '🎙';
-    $('listenLabel').textContent = state.listening ? 'Pause' : (state.started ? 'Reprendre' : 'Écouter');
-  }
-
-  $('listenBtn').addEventListener('click', () => {
-    if (state.listening) stopListening(); else startListening();
-  });
-
-  /* --------------------------- Sujet obligatoire ------------------------- */
-  const topicValue = () => $('topic').value.trim();
-  const topicOk = () => topicValue().length >= MIN_TOPIC_CHARS;
-
-  function updateTopicUi() {
-    const ok = topicOk();
-    $('listenBtn').disabled = !ok || !state.supported;
-    $('topicHint').classList.toggle('ready', ok);
-    $('topicHint').textContent = ok
-      ? 'Sujet défini — les questions serviront cet objectif.'
-      : 'Décris le sujet pour que les questions soient pertinentes';
-  }
-
-  // Pendant l'écoute, le sujet se replie en une ligne ; un tap le rouvre.
-  function setTopicCollapsed(collapsed) {
-    state.topicCollapsed = collapsed;
-    $('topicWrap').hidden = collapsed;
-    $('topicBar').hidden = !collapsed;
-    if (collapsed) $('topicBar').querySelector('.txt').textContent = topicValue();
-  }
-
-  $('topicBar').addEventListener('click', () => {
-    setTopicCollapsed(false);
-    $('topic').focus();
-  });
-
-  $('topic').addEventListener('input', updateTopicUi);
-  $('topic').addEventListener('change', () => { if (topicOk()) lsSet(LS_TOPIC, topicValue()); });
-  $('topic').addEventListener('blur', () => {
-    updateTopicUi();
-    if (!topicOk()) return;
-    lsSet(LS_TOPIC, topicValue());
-    if (state.started) setTopicCollapsed(true);   // modif en cours de réunion
-    else prewarm();                               // pré-chauffage avant démarrage
-  });
-
-  /* ============================ PERSISTANCE ============================= */
+  /* ---------------------------- Persistance ------------------------------ */
   let persistTimer = null;
-  function cancelPersist() { clearTimeout(persistTimer); persistTimer = null; }
+  const cancelPersist = () => { clearTimeout(persistTimer); persistTimer = null; };
   function persist() {
     if (persistTimer) return;
     persistTimer = setTimeout(() => {
       persistTimer = null;
       lsSet(LS_MEETING, {
         segments: state.segments.slice(-4000),
-        questions: state.questions,
-        answers: state.answers.slice(-200),
-        retired: state.retired.slice(-200),
-        elapsedMs: elapsedNow(),
-        started: state.started,
-        ended: state.ended,
-        summaryText: state.summaryText,
-        topic: $('topic').value.trim(),
-        savedAt: Date.now()
+        now: state.now, next: state.next, later: state.later,
+        answers: state.answers.slice(-200), retired: state.retired.slice(-200),
+        digest: state.digest, elapsedMs: elapsedNow(),
+        started: state.started, ended: state.ended,
+        summaryText: state.summaryText, topic: topicValue(), savedAt: Date.now()
       });
     }, 1000);
   }
-
   function loadMeeting(m) {
     state.segments = Array.isArray(m.segments) ? m.segments : [];
-    state.questions = Array.isArray(m.questions) ? m.questions : [];
+    state.now = m.now || null;
+    state.next = Array.isArray(m.next) ? m.next : [];
+    state.later = Array.isArray(m.later) ? m.later : [];
     state.answers = Array.isArray(m.answers) ? m.answers : [];
     state.retired = Array.isArray(m.retired) ? m.retired : [];
+    state.digest = m.digest || '';
     state.elapsedMs = m.elapsedMs || 0;
-    state.started = !!m.started;
-    state.ended = !!m.ended;
+    state.started = !!m.started; state.ended = !!m.ended;
     state.summaryText = m.summaryText || '';
-    qSeq = state.questions.concat(state.answers)
+    qSeq = allActive().concat(state.answers)
       .reduce((n, q) => Math.max(n, parseInt(String(q.id || '').replace(/\D/g, ''), 10) || 0), 0);
-    state.lastChars = plainChars();
     if (m.topic) $('topic').value = m.topic;
-    renderTranscript();
-    renderQuestions();
-    renderAnswers();
+    renderTranscript(); renderQuestions(); renderAnswers();
     $('chrono').textContent = mmss(state.elapsedMs);
     $('endBtn').disabled = !state.segments.length;
-    updateTopicUi();
-    updateUi();
+    updateTopicUi(); updateUi();
   }
 
-  /* ================================ BILAN =============================== */
-  const HEADINGS = [
-    'SUJET DE LA RÉUNION', 'SUJET DE LA REUNION',
-    'OBJECTIF ATTEINT ?', 'OBJECTIF ATTEINT',
-    'RÉSUMÉ', 'RESUME',
-    'POINTS CLÉS & INFORMATIONS OBTENUES', 'POINTS CLES & INFORMATIONS OBTENUES',
-    'POINTS CLÉS ET INFORMATIONS OBTENUES', 'POINTS CLES ET INFORMATIONS OBTENUES',
-    'DÉCISIONS PRISES', 'DECISIONS PRISES',
-    'ACTIONS À FAIRE', 'ACTIONS A FAIRE',
-    'QUESTIONS & RÉPONSES OBTENUES', 'QUESTIONS & REPONSES OBTENUES',
-    'QUESTIONS ET RÉPONSES OBTENUES', 'QUESTIONS ET REPONSES OBTENUES',
-    'QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS',
-    'QUESTIONS RESTEES SANS REPONSE / POINTS OUVERTS',
-    'QUESTIONS RESTÉES SANS RÉPONSE', 'QUESTIONS RESTEES SANS REPONSE',
-    'OÙ ON EN EST', 'OU ON EN EST',
-    'PROCHAINE ÉTAPE RECOMMANDÉE', 'PROCHAINE ETAPE RECOMMANDEE'
-  ];
-
+  /* ------------------------------- Bilan --------------------------------- */
+  const HEADINGS = ['SUJET DE LA RÉUNION','SUJET DE LA REUNION','OBJECTIF ATTEINT ?','OBJECTIF ATTEINT',
+    'RÉSUMÉ','RESUME','POINTS CLÉS & INFORMATIONS OBTENUES','POINTS CLES & INFORMATIONS OBTENUES',
+    'DÉCISIONS PRISES','DECISIONS PRISES','ACTIONS À FAIRE','ACTIONS A FAIRE',
+    'QUESTIONS & RÉPONSES OBTENUES','QUESTIONS & REPONSES OBTENUES',
+    'QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS','QUESTIONS RESTEES SANS REPONSE / POINTS OUVERTS',
+    'QUESTIONS RESTÉES SANS RÉPONSE','OÙ ON EN EST','OU ON EN EST',
+    'PROCHAINE ÉTAPE RECOMMANDÉE','PROCHAINE ETAPE RECOMMANDEE'];
   const isHeading = (line) => {
     const t = line.trim().replace(/^#+\s*/, '').replace(/\*\*/g, '').replace(/\s*:$/, '');
     return HEADINGS.indexOf(t.toUpperCase()) !== -1 ? t.toUpperCase() : null;
   };
-
   function renderSummary(text, streaming) {
-    const lines = text.split('\n');
-    const out = [];
+    const lines = text.split('\n'), out = [];
     lines.forEach((line, i) => {
-      const head = isHeading(line);
-      if (head) { out.push('<h3>' + esc(head) + '</h3>'); return; }
+      const h = isHeading(line);
+      if (h) { out.push('<h3>' + esc(h) + '</h3>'); return; }
       if (!line.trim()) {
         const prev = i > 0 ? lines[i - 1] : '';
-        let next = '';
-        for (let j = i + 1; j < lines.length; j++) { if (lines[j].trim()) { next = lines[j]; break; } }
-        if (isHeading(prev) || isHeading(next)) return;
+        let nx = '';
+        for (let j = i + 1; j < lines.length; j++) { if (lines[j].trim()) { nx = lines[j]; break; } }
+        if (isHeading(prev) || isHeading(nx)) return;
       }
       out.push(esc(line));
     });
@@ -1192,30 +1327,21 @@
     updateUi();
     $('summaryView').hidden = false;
     $('summaryBody').innerHTML = '<div class="center-load"><span class="spin"></span><br><br>Génération du bilan…</div>';
-    $('copyBtn').disabled = true;
-    $('dlBtn').disabled = true;
+    $('copyBtn').disabled = true; $('dlBtn').disabled = true;
     let acc = '';
-    const onDelta = (t) => {
-      acc += t;
-      // Le texte s'affiche au fur et à mesure, avec un curseur d'écriture.
-      renderSummary(acc, true);
-    };
     try {
       const data = await callApi({
-        mode: 'summary',
-        transcript: fullText(),
-        qa: state.answers.map((a) => ({ question: a.text, answer: a.answer, why: a.why || '' })),
-        open: state.questions.map((q) => q.text)
-      }, onDelta);
+        mode: 'summary', transcript: fullText(),
+        qa: state.answers.map((a) => ({ question: a.text, answer: a.answer })),
+        open: allActive().map((q) => q.text)
+      }, (t) => { acc += t; renderSummary(acc, true); });
       state.summaryText = (data && data.text) || acc.trim();
       if (!state.summaryText) throw new Error('Réponse vide du serveur.');
       renderSummary(state.summaryText);
-      $('copyBtn').disabled = false;
-      $('dlBtn').disabled = false;
+      $('copyBtn').disabled = false; $('dlBtn').disabled = false;
       persist();
     } catch (e) {
-      $('summaryBody').innerHTML =
-        '<div class="msg err"><b>Bilan non généré.</b><br>' + esc(e.message) + '</div>' +
+      $('summaryBody').innerHTML = '<div class="msg err"><b>Bilan non généré.</b><br>' + esc(e.message) + '</div>' +
         '<button class="btn wide" id="retrySum">Réessayer</button>';
       const r = $('retrySum');
       if (r) r.addEventListener('click', endMeeting);
@@ -1224,137 +1350,100 @@
   $('endBtn').addEventListener('click', endMeeting);
   $('closeSummary').addEventListener('click', () => { $('summaryView').hidden = true; });
 
-  /* ============================== EXPORTS =============================== */
+  /* ------------------------------ Exports -------------------------------- */
   function buildMarkdown() {
-    const topic = $('topic').value.trim();
-    const lines = [
-      '# Bilan de réunion',
-      '',
+    const L = ['# Bilan de réunion', '',
       '- **Date** : ' + new Date().toLocaleString('fr-FR'),
       '- **Durée** : ' + mmss(elapsedNow()),
-      '- **Sujet** : ' + (topic || 'non précisé'),
-      '',
-      '',
-      '---',
-      '',
-      state.summaryText || 'non précisé',
-      '',
-      '---',
-      '',
-      '## Questions & réponses obtenues',
-      ''
-    ];
-    lines.push(state.answers.length
-      ? state.answers.map((a) => '- **' + a.text + '**\n  → ' + a.answer +
-          (a.why ? '\n  _💡 ' + a.why + '_' : '')).join('\n')
+      '- **Sujet** : ' + (topicValue() || 'non précisé'),
+      '- **Transcription** : ' + (state.engine === 'deepgram' ? 'Deepgram nova-3, locuteurs séparés' : 'moteur du navigateur'),
+      '', '---', '', state.summaryText || 'non précisé', '', '---', '', '## Questions & réponses obtenues', ''];
+    L.push(state.answers.length
+      ? state.answers.map((a) => '- **' + a.text + '**\n  → ' + a.answer + (a.why ? '\n  _💡 ' + a.why + '_' : '')).join('\n')
       : '_Aucune question n’a reçu de réponse._');
-
-    lines.push('', '## Questions restées sans réponse', '');
-    lines.push(state.questions.length
-      ? state.questions.map((q) => '- ' + q.text + (q.why ? '\n  _💡 ' + q.why + '_' : '')).join('\n')
-      : '_Aucune._');
-
-    lines.push('', '---', '', '## Transcription complète', '', fullText() || '_Vide._', '');
-    return lines.join('\n');
+    L.push('', '## Questions restées sans réponse', '');
+    const open = allActive();
+    L.push(open.length ? open.map((q) => '- ' + q.text).join('\n') : '_Aucune._');
+    if (state.digest) L.push('', '## Mémoire de la réunion', '', state.digest);
+    L.push('', '---', '', '## Transcription complète', '', fullText() || '_Vide._', '');
+    return L.join('\n');
   }
-
-  function stamp() {
+  const stamp = () => {
     const d = new Date(), p = (n) => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
-  }
-
+  };
   $('copyBtn').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(buildMarkdown());
       $('copyBtn').textContent = '✅ Copié';
-      setTimeout(() => { $('copyBtn').textContent = '📋 Copier'; }, 1800);
+      setTimeout(() => { $('copyBtn').textContent = '📋 Copier'; }, 1600);
     } catch (e) { alert('Copie impossible — utilise le téléchargement.'); }
   });
-
   $('dlBtn').addEventListener('click', () => {
     try {
       const blob = new Blob([buildMarkdown()], { type: 'text/markdown;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = 'reunion-' + stamp() + '.md';
+      a.href = url; a.download = 'reunion-' + stamp() + '.md';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (e) { alert('Téléchargement impossible — utilise « Copier ».'); }
   });
 
-  /* =========================== NOUVELLE RÉUNION ========================= */
+  /* --------------------------- Nouvelle réunion -------------------------- */
   function resetMeeting() {
-    stopListening();
-    cancelPersist();
-    state.segments = []; state.questions = []; state.answers = []; state.retired = [];
-    state.summaryText = ''; state.elapsedMs = 0;
-    state.started = false; state.ended = false;
-    state.lastChars = 0; state.lastCallAt = 0;
-    state.liveLoading = false; state.livePending = false;
-    clearTimeout(gateTimer);
-    state.recognition = null;
-    qSeq = 0;
+    stopListening(); cancelPersist();
+    state.segments = []; state.now = null; state.next = []; state.later = [];
+    state.answers = []; state.retired = []; state.digest = ''; state.summaryText = '';
+    state.elapsedMs = 0; state.started = false; state.ended = false;
+    state.ask = ''; state.latencies = []; state.lastStart = 0;
+    firstSpeaker = null; qSeq = 0; prewarmedFor = '';
+    ws.rec = null;
     lsDel(LS_MEETING);
-    renderTranscript();
-    renderQuestions();
-    renderAnswers();
-    setInterim('');
-    setAnalyzing(false);
-    $('chrono').textContent = '00:00';
-    $('endBtn').disabled = true;
+    renderTranscript(); renderQuestions(); renderAnswers();
+    setInterim('', null);
+    $('chrono').textContent = '00:00'; $('lat').textContent = '';
+    $('askBanner').hidden = true; $('endBtn').disabled = true;
     setTopicCollapsed(false);
-    prewarmedFor = '';
-    $('trDetails').open = false;
     $('summaryView').hidden = true;
+    $('engineChip').hidden = true; state.engine = null;
     ['micMsg', 'resumeMsg', 'fatalMsg'].forEach((id) => showMsg(id, ''));
-    checkSupport();
-    updateTopicUi();
-    updateUi();
+    updateTopicUi(); updateUi();
   }
-
   $('newBtn').addEventListener('click', () => {
     if (!confirm('Effacer cette réunion et repartir de zéro ?\nLe bilan non téléchargé sera perdu.')) return;
     resetMeeting();
   });
 
   window.addEventListener('beforeunload', (e) => {
-    if (state.listening || (state.segments.length && !state.summaryText)) {
-      e.preventDefault(); e.returnValue = '';
-    }
+    if (state.listening || (state.segments.length && !state.summaryText)) { e.preventDefault(); e.returnValue = ''; }
   });
 
-  /* ============================== DÉMARRAGE ============================= */
+  /* ------------------------------ Démarrage ------------------------------ */
   function boot() {
+    applyOptions();
     initTranscriptDom();
-    renderQuestions();
-    renderAnswers();
+    renderQuestions(); renderAnswers();
 
-    const savedTopic = lsGet(LS_TOPIC);
-    if (savedTopic) $('topic').value = savedTopic;   // prérempli avec le dernier sujet
-
-    const pw = lsGet(LS_PW);
-    if (pw) state.password = pw;
-
-    const supported = checkSupport();
+    const t = lsGet(LS_TOPIC); if (t) $('topic').value = t;
+    const pw = lsGet(LS_PW); if (pw) state.password = pw;
     updateTopicUi();
+
+    if (!SR && !window.MediaRecorder) {
+      showMsg('fatalMsg', '<b>Ce navigateur ne peut ni enregistrer ni transcrire.</b> Ouvre la page dans Chrome (Android) ou Safari (iOS).');
+    }
 
     const m = lsGet(LS_MEETING);
     const recent = m && m.savedAt && (Date.now() - m.savedAt < 12 * 3600 * 1000);
-    const worthResuming = recent && Array.isArray(m.segments) && m.segments.length > 0;
-
-    if (worthResuming) {
+    const resumable = recent && Array.isArray(m.segments) && m.segments.length > 0;
+    if (resumable) {
       const mins = Math.round((m.elapsedMs || 0) / 60000);
-      showMsg('resumeMsg',
-        '<b>Réunion non terminée retrouvée</b> — ' + m.segments.length + ' passages transcrits' +
-        (mins ? ', ' + mins + ' min' : '') + '.' +
-        '<div class="acts">' +
+      showMsg('resumeMsg', '<b>Réunion non terminée retrouvée</b> — ' + m.segments.length + ' passages' +
+        (mins ? ', ' + mins + ' min' : '') + '.<div class="acts">' +
         '<button class="btn primary" id="resumeYes">Reprendre</button>' +
         '<button class="btn" id="resumeNo">Nouvelle réunion</button></div>');
       $('resumeYes').addEventListener('click', () => {
-        loadMeeting(m);
-        showMsg('resumeMsg', '');
-        updateTopicUi();
+        loadMeeting(m); showMsg('resumeMsg', '');
         if (m.started) setTopicCollapsed(true);
         if (m.summaryText) { renderSummary(m.summaryText); $('summaryView').hidden = false; }
       });
@@ -1364,9 +1453,13 @@
       updateUi();
     }
 
-    if (!state.password && supported && !worthResuming) {
+    if (!state.password && !resumable) {
       askPassword('Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.');
     }
+
+    // Préchauffage : au chargement, puis toutes les 4 minutes.
+    ping();
+    state.pingTimer = setInterval(ping, PING_EVERY_MS);
   }
 
   boot();
