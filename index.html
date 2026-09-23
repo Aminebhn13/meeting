@@ -621,6 +621,29 @@
       .concat(state.questions.map((q) => q.text));
   }
 
+  // Comparaison tolérante : accents, ponctuation et casse ignorés.
+  function normKey(s) {
+    return String(s).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Un quasi-doublon (« la date de livraison » vs « la date de livraison du
+  // lot 2 ») est écarté : si l'une des formulations contient l'autre, c'est
+  // la même question.
+  function isDuplicate(text, keys) {
+    const k = normKey(text);
+    if (k.length < 4) return true;
+    for (let i = 0; i < keys.length; i++) {
+      const s = keys[i];
+      if (!s) continue;
+      if (s === k || s.indexOf(k) !== -1 || k.indexOf(s) !== -1) return true;
+    }
+    return false;
+  }
+
   function applyLive(data) {
     const answered = Array.isArray(data.answered) ? data.answered : [];
     const obsolete = Array.isArray(data.obsolete) ? data.obsolete : [];
@@ -645,13 +668,12 @@
     });
 
     // 3. Nouvelles : on complète jusqu'à TARGET_QUESTIONS, sans doublon.
-    const seen = knownTexts().map((t) => t.toLowerCase());
+    const seen = knownTexts().map(normKey);
     let added = 0;
     fresh.forEach((text) => {
       if (state.questions.length >= TARGET_QUESTIONS) return;
-      const key = text.toLowerCase();
-      if (seen.indexOf(key) !== -1) return;
-      seen.push(key);
+      if (isDuplicate(text, seen)) return;
+      seen.push(normKey(text));
       const q = { id: nextId(), text: text, at: Date.now() };
       state.questions.push(q);
       addCard(q, true);

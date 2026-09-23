@@ -43,7 +43,9 @@ et répond en JSON strict :
 - **answered** — l'interlocuteur a répondu, même sans reprendre les mots de la question, même si
   vous ne l'avez pas posée, même si le sujet est venu spontanément.
 - **obsolete** — la conversation est passée à autre chose.
-- **new** — de quoi revenir à 3 questions à l'écran, sans doublon avec ce qui a déjà été proposé ou traité.
+- **new** — de quoi revenir à 3 questions à l'écran, sans doublon avec ce qui a déjà été proposé
+  ou traité. Le filtre anti-doublon est tolérant : accents, casse et ponctuation ignorés, et une
+  reformulation qui contient une question existante est écartée.
 
 Le parsing est tolérant (bloc de code, texte autour, accolades dans les chaînes). **En cas d'échec,
 l'affichage reste tel quel, sans message d'erreur** — jamais de perturbation en pleine réunion.
