@@ -31,7 +31,7 @@ const MAX_TRANSCRIPT_SELECT = 3000;
 const MAX_TRANSCRIPT_PREPARE = 14000;
 const MAX_TRANSCRIPT_SUMMARY = 80000;
 
-const MAX_TOKENS = { plan: 1400, prepare: 1600, select: 700, summary: 4000 };
+const MAX_TOKENS = { plan: 1400, prepare: 1600, select: 1300, summary: 4000 };
 
 /* ------------------------------------------------------------- prompts ---- */
 
@@ -271,6 +271,12 @@ function buildSelectPrompt({ transcript, resume, faits, questions, categorie, te
     "6. STALE. Si une correction du client rend l'intervention actuellement affichée inexacte,",
     '   staleCurrent = true et propose une formulation corrigée distincte.',
     '',
+    'LIMITES DE SORTIE — impératives pour la réactivité :',
+    '- 5 faits NOUVEAUX au maximum. Ne répète jamais un fait déjà retenu.',
+    '- N’émets « contexte » que si la phase est intro ; sinon renvoie {}.',
+    '- Citations de 20 mots maximum. 2 suites au maximum.',
+    '- Sois bref : une réponse tronquée est inutilisable.',
+    '',
     'Réponds UNIQUEMENT par un objet JSON valide, sans texte autour :',
     '{"phase":"intro|questions",',
     ' "intro":{"advisorPresented":false,"clientDescribed":false},',
@@ -401,11 +407,37 @@ function buildSummaryPrompt({ transcript, faits, questions, resume, temps, scena
 
 /* ---------------------------------------------------------- extraction ---- */
 
+// Un flux coupé net (max_tokens atteint) laisse un JSON inachevé. Plutôt que de
+// tout perdre, on revient au dernier élément complet et on referme les structures.
+function repairJson(s) {
+  let inStr = false, esc = false, lastSafe = -1;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '}' || c === ']') lastSafe = i;
+  }
+  if (lastSafe === -1) return null;
+  let head = s.slice(0, lastSafe + 1).replace(/,\s*$/, '');
+  const open = [];
+  inStr = false; esc = false;
+  for (let i = 0; i < head.length; i++) {
+    const c = head[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; continue; }
+    if (c === '{') open.push('}'); else if (c === '[') open.push(']');
+    else if (c === '}' || c === ']') open.pop();
+  }
+  while (open.length) head += open.pop();
+  try { return JSON.parse(head); } catch { return null; }
+}
+
 function extractJson(raw) {
   if (typeof raw !== 'string' || !raw.trim()) return null;
   let s = raw.trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
+  else { const openFence = s.match(/```(?:json)?\s*([\s\S]*)$/i); if (openFence) s = openFence[1].trim(); }
   try { return JSON.parse(s); } catch { /* on continue */ }
   const start = s.indexOf('{');
   if (start === -1) return null;
@@ -418,9 +450,9 @@ function extractJson(raw) {
     }
     if (c === '"') { inStr = true; continue; }
     if (c === '{') depth++;
-    else if (c === '}') { depth--; if (depth === 0) { try { return JSON.parse(s.slice(start, i + 1)); } catch { return null; } } }
+    else if (c === '}') { depth--; if (depth === 0) { try { return JSON.parse(s.slice(start, i + 1)); } catch { return repairJson(s.slice(start)); } } }
   }
-  return null;
+  return repairJson(s.slice(start));   // flux coupé avant la fermeture
 }
 
 const str = (v, max) => String(v === undefined || v === null ? '' : v).trim().slice(0, max || 500);
