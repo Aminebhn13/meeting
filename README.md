@@ -1,187 +1,142 @@
-# 🎙️ Meeting Copilot
+# Copilote d'appel — Advisor
 
-Copilote de réunion, à ouvrir **sur le téléphone posé à côté du PC** pendant une visioconférence.
-Il écoute, propose en continu les questions à poser à ton interlocuteur, et produit le bilan complet
-à la fin.
+Web app métier pour les advisors en **financement de projets** : elle écoute l'appel de
+qualification, prépare l'intervention à prononcer, tient la mémoire du dossier et produit le
+compte rendu.
 
-Un écran, trois gestes : **Écouter** → lire les questions → **Terminer la réunion**.
-
-Aucune dépendance, aucun build : un `index.html` statique + une fonction serverless Vercel.
+> **Le référentiel métier fait foi** : [`docs/referentiel-metier.md`](docs/referentiel-metier.md).
+> Il prime sur ce README et sur toute autre spécification du dépôt.
+> Une qualification autorise une présentation ; **elle ne constitue jamais un accord de financement**.
 
 ---
 
-## L'écran
-
-Rien à cliquer pendant la réunion. **Mode discret** : noir profond, blanc cassé, aucune couleur
-vive, aucune animation voyante, aucun son. L'écran éclaire le moins possible votre visage.
+## Configuration matérielle
 
 | | |
 |---|---|
-| **Sujet de la réunion** | **Obligatoire.** Zone de 3 lignes : le sujet *et* l'objectif. Le bouton Écouter reste grisé sous 10 caractères. Pendant l'écoute il se replie en une ligne ; un tap le rouvre, la modification vaut dès le cycle suivant. |
-| **▶ MAINTENANT** | **1 question, en 26 px**, collée en haut de l'écran, avec son 💡 pourquoi (8 mots max). C'est la seule chose à lire en parlant. |
-| **ENSUITE** | 4 relances alternatives, taille moyenne. |
-| **À ABORDER** | 3 questions pour amener les sujets de l'objectif pas encore traités, plus petites. |
-| **Il vous demande : …** | Bandeau en haut dès que le client pose une question directe. |
-| **✓ Réponses obtenues (n)** | Repliable : chaque question traitée, sa réponse, son pourquoi. |
-| **Transcription** | Repliable, avec **Moi :** / **Client :**. |
-| **⚡ 0,9 s** | Latence moyenne des 5 derniers appels, en haut à droite. |
+| **Appel** | Sur un **téléphone séparé** (Android ou iPhone), **en haut-parleur**, via WhatsApp, Teams, Zoom ou Google Meet. |
+| **Web app et prompteur** | Sur **l'ordinateur**, qui capte le son avec son micro (intégré ou externe). |
+| **Aucune intégration** | Pas d'accès au flux audio interne des applications d'appel. La captation est **acoustique**. |
+| **Réglages micro** | `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: true` — on capte un haut-parleur, ces filtres effaceraient la voix du client. Sélecteur de micro disponible. |
 
-Soit **7 à 8 questions en permanence**. Elles disparaissent seules quand le client répond,
-sont remplacées quand elles deviennent hors sujet, jamais en double.
+Le prompteur est dimensionné pour être lu à **60–80 cm**.
 
-**Options** (⚙) : afficher le pourquoi, question collée en haut, vibration (**désactivée par
-défaut**), inverser Moi / Client.
+## Parcours
 
-> **Posez le téléphone juste sous la webcam.** La question MAINTENANT est collée en haut de
-> l'écran : votre regard reste à quelques centimètres de la caméra, et vous continuez à
-> regarder votre interlocuteur.
+### 1. Configuration
+Société représentée (**Swiss PWM AG** → cadre suisse, **Admiralty Capital Limited** → cadre
+Hong Kong), scénario (*PWM seule*, *Admiralty seule*, *PWM + Admiralty*, *À confirmer* — **aucun
+coprêt**), durée (20 / 30 / 45 min, 1 h, 1 h 30, 2 h), canal, contexte du dossier (obligatoire),
+advisor, documents.
 
-## Transcription — Deepgram en streaming
+**Case obligatoire** : « Le client a été informé de l'enregistrement et de la transcription ».
+Le bouton Démarrer reste désactivé tant qu'elle n'est pas cochée.
 
-WebSocket vers **Deepgram nova-3** (`language=fr`, `interim_results`, `smart_format`,
-`diarize`, `endpointing=300`, `utterance_end_ms=1000`). L'audio part par tranches de 250 ms.
+### 2. Test de captation (~20 s)
+Niveau capté, transcription obtenue, et **attribution des voix** : l'advisor confirme quel
+locuteur Deepgram il est. Verdict ✅ / ⚠️ / ❌. Le test peut être passé, l'avertissement reste.
+En cas de doute, un segment est marqué **Incertain** plutôt qu'attribué au mauvais interlocuteur.
 
-La capture micro désactive volontairement `echoCancellation` et `noiseSuppression` : on capte
-les **haut-parleurs du PC**, et ces filtres effaceraient la voix du client. `autoGainControl`
-reste actif.
+### 3. Introduction — **aucune question affichée**
+L'introduction se déroule en deux temps :
+1. **L'advisor présente la société.** L'écran affiche uniquement la fiche institutionnelle validée,
+   en petit. Sans fiche renseignée : « Présentation en cours… ».
+2. **Le client se présente.** L'app remplit en direct la fiche **Contexte capté** et prépare les
+   questions **en arrière-plan, sans les afficher**.
 
-**Diarisation** : Deepgram sépare les locuteurs ; le premier entendu est étiqueté « Moi »,
-l'autre « Client ». Si la réunion commence autrement, l'option **Inverser Moi / Client**
-corrige **toute** la transcription, y compris les passages déjà écrits.
+Le passage aux questions exige **les deux présentations faites** *puis* une **pause naturelle**
+après un tour de parole du client. Bouton **« Commencer les questions → »** toujours disponible.
+**Aucune bascule au chronomètre** : si l'introduction dure, l'app attend.
 
-La clé Deepgram ne quitte jamais le serveur : `api/deepgram-token.js` délivre un **JWT de
-5 minutes** (l'API renvoie 30 s par défaut, trop court pour ouvrir le micro puis le socket),
-protégé par `APP_PASSWORD`. Le WebSocket se reconnecte tout seul avec un jeton frais.
+> La règle est appliquée **côté serveur** : tant que `phase` vaut `intro`, l'API supprime
+> l'intervention avant de répondre. Un modèle qui désobéirait ne peut pas faire fuiter une question.
 
-**Repli automatique** : si le jeton ou le WebSocket échoue, l'app bascule sur la Web Speech API
-du navigateur sans interrompre la réunion (sans séparation des locuteurs).
+### 4. Pendant l'appel
+**Barre de commandes** : société active et cadre juridique, durée / écoulé / restant, phase du
+plan, catégories `Stratégique | Juridique | Financier | Catégorie suivante →`, **Modifier la durée**,
+latence moyenne, Terminer l'appel.
 
-## Questions au tac au tac
+**Plan** : répartition en minutes introduction / stratégie / juridique / financier / synthèse,
+dont la somme vaut **exactement** la durée choisie, affichée en frise. La réserve de sujets est
+proportionnelle à la durée. Un changement de durée **conserve le temps écoulé** et recalcule le plan.
 
-Une analyse part :
+**Prompteur** — une seule intervention, en 31 px, à la première personne, vouvoiement :
+- **Stable** : dès que l'advisor commence à parler, l'intervention est **verrouillée** et n'est
+  jamais réécrite. Le remplacement intervient à la **pause naturelle suivante** ou sur action explicite.
+- **Passage automatique** : une question passe à « posée » seulement si l'advisor a réellement
+  prononcé une formulation équivalente. Un silence, le temps écoulé ou le simple affichage ne
+  suffisent jamais.
+- **Pause auto** : l'écoute et la **préparation continuent**, seul l'affichage se fige. Le bot ne
+  réactive jamais l'auto de lui-même.
+- Badges **⚠ à actualiser** (correction du client) et **⚠ suggestion possiblement dépassée**.
+- Boutons : `Approfondir`, `Avancer`, `Variantes`, `◀ Précédente`, `⏸ Pause auto`.
+- Panneau **Détails** replié : objectif métier, propos source cité et horodaté, information à
+  préciser, pièce attendue, suites possibles selon la réponse.
 
-- sur **texte intermédiaire**, ~1,2 s après du nouveau contenu — l'IA travaille **pendant que
-  le client parle encore** ; le passage en cours lui est envoyé marqué `[EN COURS]` ;
-- **immédiatement** à chaque fin d'énoncé (`UtteranceEnd` de Deepgram) ;
-- **immédiatement** quand le client pose une question.
+**Panneau latéral** : contexte capté, file des questions avec leur statut, transcription
+**Advisor / Client / Incertain**.
 
-**Le plus récent gagne** : chaque nouvel appel annule le précédent (`AbortController`). Pas de
-file d'attente, pas de réponse périmée qui s'affiche. Plafond de sécurité : 1 appel / 2 s.
+### 5. Fin d'appel
+Compte rendu streamé : compte rendu factuel, informations par axe avec source et certitude,
+**corrections sensibles à confirmer** (validées une par une avant l'export), contradictions,
+questions réellement posées, points ouverts, pièces, actions, position dans la chronologie des
+16 repères, orientation de scénario ou « orientation à confirmer ».
 
-**Stabilité** : la question MAINTENANT tient **au moins 4 s** — sauf si elle vient d'être
-répondue, ou si l'IA renvoie `replaceNow: true` parce que la nouvelle est nettement meilleure.
-Sinon la relance proposée bascule en « Ensuite ». Le rendu se fait **par diff sur des ids
-stables** : seules les cartes qui changent s'animent (150–200 ms), les autres ne bougent pas.
+Une question **affichée mais jamais posée** n'apparaît **jamais** comme un échange réel.
+L'export `.md` sert de base à l'appel suivant via l'import.
 
-## Latence minimale
+## Architecture IA
 
-- **Vercel Edge Runtime** : pas de cold start.
-- **Haiku 4.5** pour le live, **2 500 derniers caractères** seulement, `max_tokens` 350.
-- **Résumé roulant** régénéré toutes les 2 min par un appel de fond : la mémoire longue de la
-  réunion sans alourdir chaque appel.
-- **Préchauffage** : ping de l'endpoint au chargement puis toutes les 4 min.
-- **Prompt caching** (`cache_control: ephemeral`) sur le préfixe stable — règles de style et
-  sujet. ⚠️ Le minimum cacheable de **Haiku 4.5 est de 4096 tokens** : sous ce seuil Anthropic
-  ignore le marqueur sans erreur. Le préfixe actuel (~600 tokens) est en dessous, donc le cache
-  **ne s'active pas encore** ; il s'activera dès que le contexte grossira. L'événement SSE
-  `usage` renvoie `cache_read` / `cache_write` pour le vérifier plutôt que le supposer.
+| Niveau | Modèle | Rôle |
+|---|---|---|
+| **Sélecteur** | `CLAUDE_MODEL_FAST` (Haiku) | À chaque fin de tour : phase, faits, statuts des questions, prochaine intervention. Streamé. |
+| **Préparateur** | `CLAUDE_MODEL` (Sonnet) | Toutes les ~20 s en fond : résumé roulant, file de questions avec branches, contradictions, pièces. Ne bloque jamais l'appel. |
+| **Plan / Compte rendu** | `CLAUDE_MODEL` | Répartition du temps, puis compte rendu final. |
 
-## Le bilan
+**Prompt caching** : le prompt système est en deux blocs marqués `cache_control: ephemeral` — le
+référentiel condensé versionné (`api/prompts/referentiel-condense.js`, ~1800 tokens) et le bloc
+société / règles / dossier / plan. Le bloc stable dépasse le minimum de Sonnet (1024 tokens).
+⚠️ Le minimum de **Haiku 4.5 est de 4096 tokens** : pour le sélecteur, le cache ne s'active que si
+le contexte dépasse ce seuil. L'événement SSE `usage` renvoie `cache_read` / `cache_write` pour le
+**mesurer** plutôt que le supposer.
 
-Dix sections, rien d'inventé, propos attribués Moi / Client :
-
-`SUJET DE LA RÉUNION` · **`OBJECTIF ATTEINT ?`** (ce qui a été obtenu, ce qui manque) · `RÉSUMÉ` ·
-`POINTS CLÉS & INFORMATIONS OBTENUES` · `DÉCISIONS PRISES` · `ACTIONS À FAIRE` ·
-`QUESTIONS & RÉPONSES OBTENUES` · `QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS` ·
-`OÙ ON EN EST` · `PROCHAINE ÉTAPE RECOMMANDÉE`
-
-Streamé au fur et à mesure. Puis **Copier**, **⬇ .md** (bilan + Q/R + mémoire + transcription
-diarisée) et **Nouvelle réunion**.
-
-## Ne rien perdre
-
-Sujet, transcription, les 3 niveaux, réponses obtenues et résumé roulant sont écrits dans le
-`localStorage`. Si la page se recharge, l'app propose de **reprendre la réunion**. Wake Lock pour
-garder l'écran allumé.
-
----
-
-## Déploiement
-
-Import du repo sur **[vercel.com/new](https://vercel.com/new)**, puis deux variables
-d'environnement, puis un redéploiement. **Marche à suivre détaillée : [DEPLOIEMENT.md](DEPLOIEMENT.md).**
+## Variables d'environnement
 
 | Variable | Requis | Défaut | Rôle |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | oui | — | Clé API Anthropic. **Jamais exposée au navigateur.** |
-| `APP_PASSWORD` | recommandé | — | Si défini, le header `x-app-password` est exigé ; sinon `401`. |
-| `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle du bilan. |
-| `CLAUDE_MODEL_FAST` | non | `claude-haiku-4-5-20251001` | Modèle du temps réel et du résumé roulant. |
-| `DEEPGRAM_API_KEY` | recommandé | — | Transcription Deepgram nova-3. Sans elle, l'app bascule sur le moteur du navigateur. |
-| `ANTHROPIC_WORKSPACE_ID` | non | — | Uniquement si la clé n'est rattachée à aucun workspace (Anthropic renvoie alors une erreur 400 le réclamant). |
+| `ANTHROPIC_API_KEY` | oui | — | Clé API Anthropic. Jamais exposée au navigateur. |
+| `APP_PASSWORD` | **fortement recommandé** | — | Sans elle, les deux endpoints sont ouverts. |
+| `DEEPGRAM_API_KEY` | recommandé | — | Transcription nova-3 avec diarisation. Sans elle, repli navigateur **sans séparation des locuteurs**. |
+| `CLAUDE_MODEL` | non | `claude-sonnet-5` | Préparateur, plan, compte rendu. |
+| `CLAUDE_MODEL_FAST` | non | `claude-haiku-4-5-20251001` | Sélecteur. |
+| `ANTHROPIC_WORKSPACE_ID` | non | — | Si la clé n'est rattachée à aucun workspace. |
 
-> Les variables ne s'appliquent qu'après un **redéploiement**.
+## Paramètres (page dédiée, `localStorage`, export/import JSON)
+
+Par société : **fiche institutionnelle validée** et **règles validées** (avec date et source).
+
+> C'est la **seule base autorisée** pour aider l'advisor à présenter la société et répondre aux
+> questions du client. **Si les règles sont vides, toute question de taux, frais, délai ou critère
+> renvoie « à confirmer »** — aucun chiffre n'est inventé.
 
 ## API interne
 
-Deux endpoints, tous deux en **Edge Runtime**, tous deux protégés par `APP_PASSWORD`.
+`POST /api/claude` (Edge, SSE) — modes `ping`, `plan`, `prepare`, `select`, `summary`.
+Le **contexte du dossier est obligatoire** (10 caractères minimum), sinon `400`.
+`POST /api/deepgram-token` (Edge) — JWT de 5 minutes, `401` sans mot de passe.
 
-### `POST /api/deepgram-token`
-`-> 200 { access_token, expires_in }` · `401` sans mot de passe · `500` si `DEEPGRAM_API_KEY`
-est absente. Le jeton vaut 5 minutes.
+## Hors périmètre de cette itération
 
-### `POST /api/claude`
-Réponse en **SSE** : `delta` (texte au fil de l'eau), `usage` (diagnostic du cache), `done`.
-
-```jsonc
-{ "mode": "ping" }                      // préchauffe, n'appelle pas Anthropic -> { ok: true }
-
-{ "mode": "live",                        // temps réel, Haiku, max_tokens 350
-  "topic": "…",                          // OBLIGATOIRE, 10 caractères minimum
-  "transcript": "…",                     // 2 500 derniers caractères, « Moi : » / « Client [EN COURS] : »
-  "digest": "…",                         // résumé roulant
-  "questions": [{ "id": "q1", "text": "…" }],
-  "answered": ["…"] }
-// done -> { answered:[{id,answer}], obsolete:["id"], ask:"", replaceNow:bool,
-//           now:{question,why}, next:[{question}], later:[{question}] }
-
-{ "mode": "digest", "topic": "…", "transcript": "…", "previous": "…" }   // -> { text }
-{ "mode": "summary", "topic": "…", "transcript": "…", "qa": [...], "open": [...] } // -> { text }
-```
-
-Une erreur survenue **avant** le flux revient en JSON classique avec le bon code HTTP.
-Le mode `live` renvoie toujours la structure complète — vide si le modèle n'a pas produit de
-JSON exploitable, pour ne jamais perturber l'affichage.
-
----
+Sections 9, 11 et 12 du référentiel : gestion complète des dossiers, n8n, Obsidian, Investment
+Memo, Committee Pack. Les structures de données (`facts[]`, `questions[]`, pièces, contradictions)
+sont en place pour les accueillir.
 
 ## Limites connues
 
-- **Web Speech API** : Chrome (Android, desktop) et Safari (iOS 14.5+). Firefox et les navigateurs
-  intégrés aux applications (Instagram, LinkedIn, Gmail) ne la gèrent pas — un message explicite
-  s'affiche.
-- **Qualité de la transcription** : dépend du micro, du bruit et du volume des haut-parleurs. Les
-  orateurs ne sont **pas** distingués ; les prompts en tiennent compte.
-- **Coupures** : les navigateurs mobiles arrêtent la reconnaissance régulièrement. L'app redémarre
-  automatiquement, mais quelques mots peuvent se perdre à la jonction.
-- **Arrière-plan** : écran verrouillé ou app quittée, le navigateur suspend le micro. Garder l'écran
-  allumé — le Wake Lock s'en charge quand il est disponible.
-- **Horodatage** : relatif au temps d'écoute cumulé, pas à l'heure réelle.
-- Chrome envoie l'audio à un service de reconnaissance Google ; Safari à celui d'Apple.
-
-## Confidentialité
-
-- L'audio n'est **jamais** stocké ni transmis par cette application : il est traité par le moteur de
-  reconnaissance vocale du navigateur.
-- La transcription ne quitte le téléphone que lors d'un appel à `/api/claude` — envoyée à l'API
-  Anthropic pour cet appel seulement, jamais persistée côté serveur.
-- Sujet, transcription, questions et bilan restent dans le `localStorage` du téléphone, effaçables
-  via « Nouvelle réunion ».
-- `ANTHROPIC_API_KEY` reste exclusivement côté serveur. Le mot de passe applicatif est un
-  garde-barrière contre l'usage de ton quota API, pas un système d'authentification.
-- **Préviens tes interlocuteurs** : transcrire une réunion sans le dire est, selon les juridictions
-  et les contextes, discutable — voire illégal.
-
-## Licence
-
-Usage personnel.
+- La captation acoustique dépend du micro, du volume du haut-parleur et du bruit ambiant. **Le test
+  de démarrage ne remplace pas une validation en conditions réelles.**
+- Sans Deepgram, le repli navigateur ne sépare pas les locuteurs : les segments sont marqués
+  *Incertain*, et le passage automatique du prompteur en est dégradé.
+- Les seuils de latence et les réglages micro restent à valider lors du cadrage technique.
+- L'articulation **PWE / PWM**, les modalités contractuelles des trois scénarios et les règles
+  exactes d'orientation restent **à préciser** : l'app ne les déduit jamais.

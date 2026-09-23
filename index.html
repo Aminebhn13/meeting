@@ -2,1467 +2,1516 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="theme-color" content="#000000">
-<meta name="description" content="Copilote de réunion haute performance : relances en direct, bilan complet.">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Copilot">
-<title>Meeting Copilot</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0b0d">
+<meta name="description" content="Copilote d'appel pour advisors en financement de projets.">
+<title>Copilote Advisor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
 <style>
-  /* Mode discret : noir profond, blanc cassé, aucune couleur vive.
-     L'écran éclaire le moins possible le visage en visioconférence. */
   :root {
-    --bg:        #000000;
-    --surface:   #0c0d0f;
-    --surface-2: #14161a;
-    --border:    #1e2126;
-    --border-2:  #2a2e35;
-    --text:      #e8e6e3;
-    --dim:       #8b8d93;
-    --faint:     #5c5f66;
-    --accent:    #7d94b5;
-    --accent-2:  #46586f;
-    --ok:        #6d9b7a;
-    --warn:      #9b8f5f;
-    --danger:    #a86a66;
-    --anim:      180ms;
-    --ease:      cubic-bezier(.4, 0, .2, 1);
-    --safe-b: env(safe-area-inset-bottom, 0px);
-    --safe-t: env(safe-area-inset-top, 0px);
+    --bg:#0a0b0d; --panel:#111316; --panel-2:#171a1f; --line:#232730; --line-2:#2e333d;
+    --tx:#e9e7e4; --dim:#9aa0a8; --faint:#646a73;
+    --acc:#7fa3d1; --acc-2:#3d5875; --ok:#6fa07c; --warn:#a89a5f; --dgr:#ad6f6b;
+    --an:160ms; --ez:cubic-bezier(.4,0,.2,1);
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  [hidden] { display: none !important; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: 16px; line-height: 1.5; -webkit-text-size-adjust: 100%;
-    overscroll-behavior-y: none;
-    padding: calc(var(--safe-t) + 8px) 12px calc(76px + var(--safe-b));
-    max-width: 720px; margin: 0 auto;
-  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none !important}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+  button,input,select,textarea{font-family:inherit}
 
-  /* ---------------- Barre d'état ---------------- */
-  .statusbar {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 11.5px; color: var(--faint);
-    padding: 0 2px 8px; font-variant-numeric: tabular-nums;
-  }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
-  .dot.rec { background: var(--danger); animation: pulse 2s ease-in-out infinite; }
-  .dot.paused { background: var(--warn); }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
-  .statusbar .sp { flex: 1; }
-  .statusbar .chip {
-    border: 1px solid var(--border); border-radius: 999px; padding: 2px 7px; color: var(--dim);
-  }
-  .statusbar .chip.live { border-color: var(--accent-2); color: var(--accent); }
-  #lat { min-width: 52px; text-align: right; }
+  /* ---------- primitives ---------- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--panel);
+       border:1px solid var(--line-2);color:var(--tx);font-size:14px;font-weight:600;border-radius:8px;
+       padding:9px 14px;min-height:38px;cursor:pointer;transition:background var(--an) var(--ez)}
+  .btn:hover:not(:disabled){background:var(--panel-2)}
+  .btn:disabled{opacity:.35;cursor:not-allowed}
+  .btn.primary{background:var(--acc-2);border-color:var(--acc-2)}
+  .btn.ghost{background:none;border-color:var(--line)}
+  .btn.sm{font-size:13px;padding:6px 11px;min-height:32px}
+  .btn.on{background:var(--acc-2);border-color:var(--acc)}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+  .seg button{background:none;border:0;border-right:1px solid var(--line-2);color:var(--dim);
+              font-size:13px;font-weight:600;padding:8px 13px;cursor:pointer;min-height:36px}
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed="true"]{background:var(--acc-2);color:var(--tx)}
+  label.fld{display:block;font-size:12px;font-weight:600;color:var(--dim);margin:14px 0 6px;letter-spacing:.02em}
+  label.fld:first-child{margin-top:0}
+  .hint{font-size:11.5px;color:var(--faint);font-weight:400;margin-top:4px;line-height:1.4}
+  input[type=text],input[type=password],textarea,select{width:100%;background:var(--bg);
+    border:1px solid var(--line-2);border-radius:8px;color:var(--tx);font-size:14px;padding:9px 11px}
+  textarea{resize:vertical;line-height:1.45}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc-2)}
+  .chk{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--dim);line-height:1.4;cursor:pointer}
+  .chk input{margin-top:2px;flex:none;width:16px;height:16px;accent-color:var(--acc)}
+  .msg{border:1px solid;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:10px}
+  .msg.err{background:rgba(173,111,107,.08);border-color:rgba(173,111,107,.35);color:#d9a9a5}
+  .msg.warn{background:rgba(168,154,95,.08);border-color:rgba(168,154,95,.35);color:#cdbd85}
+  .msg.info{background:rgba(127,163,209,.07);border-color:rgba(127,163,209,.25);color:#adc4e0}
+  .msg:empty{display:none}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(233,231,228,.2);
+        border-top-color:var(--tx);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none;display:inline-block}
+  .dot.rec{background:var(--dgr);animation:pl 2s ease-in-out infinite}
+  @keyframes pl{0%,100%{opacity:1}50%{opacity:.3}}
+  @media (prefers-reduced-motion:reduce){.dot.rec,.spin{animation:none}}
 
-  /* ---------------- Sujet ---------------- */
-  .topic-wrap { margin-bottom: 14px; }
-  #topic {
-    width: 100%; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px;
-    line-height: 1.45; padding: 12px 13px; resize: vertical; min-height: 88px;
-    appearance: none; -webkit-appearance: none;
-  }
-  #topic::placeholder { color: var(--faint); }
-  #topic:focus { outline: none; border-color: var(--accent-2); }
-  #topicHint { font-size: 11.5px; color: var(--faint); margin-top: 6px; line-height: 1.4; }
-  #topicHint.ready { color: var(--ok); }
-  #topicBar {
-    display: flex; align-items: center; gap: 8px; width: 100%;
-    background: none; border: 1px solid var(--border); border-radius: 8px;
-    color: var(--faint); font-family: inherit; font-size: 12px; text-align: left;
-    padding: 7px 10px; cursor: pointer; margin-bottom: 10px;
-  }
-  #topicBar .txt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* ---------- écrans ---------- */
+  .screen{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+  .screen h1{font-size:20px;font-weight:650;margin:0 0 4px}
+  .screen .sub{font-size:13px;color:var(--faint);margin:0 0 24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px}
+  .card h2{font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin:0 0 14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:720px){.grid2{grid-template-columns:1fr}}
 
-  /* ---------------- Bandeau « il vous demande » ---------------- */
-  #askBanner {
-    background: var(--surface-2); border: 1px solid var(--accent-2);
-    border-radius: 10px; padding: 10px 12px; margin-bottom: 12px;
-    font-size: 14.5px; line-height: 1.4; color: var(--text);
-    transition: opacity var(--anim) var(--ease);
-  }
-  #askBanner .lbl {
-    display: block; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
-    color: var(--accent); margin-bottom: 3px;
-  }
+  /* ---------- barre de commandes ---------- */
+  .cmd{position:sticky;top:0;z-index:30;background:rgba(10,11,13,.97);border-bottom:1px solid var(--line);
+       padding:9px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .cmd .grp{display:flex;align-items:center;gap:8px}
+  .cmd .lbl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .cmd .val{font-size:13px;font-weight:600}
+  .cmd .val.warn{color:var(--warn)}
+  .cmd .sp{flex:1}
+  .clock{font-variant-numeric:tabular-nums}
 
-  /* ---------------- Niveaux de questions ---------------- */
-  .tier-label {
-    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--faint); margin: 16px 2px 7px; display: flex; align-items: center; gap: 7px;
-  }
-  .tier-label .n { color: var(--faint); font-weight: 500; letter-spacing: 0; }
+  /* frise du plan */
+  .frieze{display:flex;height:4px;background:var(--line);overflow:hidden}
+  .frieze div{height:100%;position:relative}
+  .frieze div.cur{box-shadow:inset 0 0 0 99px rgba(127,163,209,.5)}
+  .frieze-lbl{display:flex;font-size:10px;color:var(--faint);padding:4px 16px 0;gap:0}
+  .frieze-lbl span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:6px}
 
-  ul.cards { list-style: none; margin: 0; padding: 0; }
-  ul.cards li {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 13px; margin-bottom: 7px; overflow: hidden;
-    transition: opacity var(--anim) var(--ease), transform var(--anim) var(--ease),
-                height var(--anim) var(--ease), margin-bottom var(--anim) var(--ease),
-                padding-top var(--anim) var(--ease), padding-bottom var(--anim) var(--ease),
-                border-color var(--anim) var(--ease);
-  }
-  ul.cards li.entering { opacity: 0; transform: translateY(8px); }
-  ul.cards li.leaving {
-    height: 0 !important; margin-bottom: 0 !important;
-    padding-top: 0 !important; padding-bottom: 0 !important;
-    opacity: 0; border-width: 0; transform: translateX(14px);
-  }
-  ul.cards li.answered { border-color: var(--ok); }
-  ul.cards li.answered .q { color: var(--dim); }
-  ul.cards li.obsolete { opacity: .3; }
+  /* ---------- scène ---------- */
+  .stage{display:grid;grid-template-columns:1fr 340px;gap:18px;padding:18px 16px 24px;
+         max-width:1400px;margin:0 auto;align-items:start}
+  @media (max-width:1000px){.stage{grid-template-columns:1fr}}
 
-  /* MAINTENANT — très gros, collé en haut */
-  #nowWrap { margin: 0 0 4px; }
-  body.pin-top #nowWrap {
-    position: sticky; top: calc(var(--safe-t) + 0px); z-index: 20;
-    background: var(--bg); padding-top: 4px; padding-bottom: 4px;
-  }
-  #nowList li {
-    border-left: 2px solid var(--accent); padding: 16px 15px; margin-bottom: 0;
-    background: var(--surface);
-  }
-  #nowList .q { font-size: 26px; line-height: 1.24; font-weight: 500; letter-spacing: -.01em; }
-  #nowList .why {
-    margin-top: 8px; font-size: 12.5px; line-height: 1.35; color: var(--faint);
-    display: flex; gap: 5px;
-  }
-  body.hide-why #nowList .why { display: none; }
-  #nowList li.answered { border-left-color: var(--ok); }
-  ul.cards .ans { font-size: 13.5px; color: var(--ok); margin-top: 7px; display: none; }
-  ul.cards li.answered .ans { display: block; }
-  #nowList .ans { font-size: 14px; }
+  /* prompteur */
+  .prompter{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 28px;min-height:230px;
+            display:flex;flex-direction:column}
+  .prompter .meta{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.07em;
+                  text-transform:uppercase;color:var(--faint);margin-bottom:14px;flex-wrap:wrap}
+  .badge{border:1px solid var(--line-2);border-radius:999px;padding:2px 9px;font-size:10.5px;letter-spacing:.04em}
+  .badge.lock{border-color:var(--acc-2);color:var(--acc)}
+  .badge.stale{border-color:var(--warn);color:var(--warn)}
+  .badge.old{border-color:var(--dgr);color:var(--dgr)}
+  #promptText{font-size:31px;line-height:1.3;font-weight:450;letter-spacing:-.01em;flex:1;
+              transition:opacity var(--an) var(--ez)}
+  #promptText.swap{opacity:0}
+  .prompter .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px;align-items:center}
+  .prompter .acts .sp{flex:1}
+  details.det{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+  details.det>summary{cursor:pointer;font-size:12px;color:var(--dim);list-style:none}
+  details.det>summary::-webkit-details-marker{display:none}
+  details.det>summary::before{content:'▶ ';font-size:9px;color:var(--faint)}
+  details.det[open]>summary::before{content:'▼ '}
+  .det dl{margin:12px 0 0;font-size:13px;line-height:1.5}
+  .det dt{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-top:11px}
+  .det dt:first-child{margin-top:0}
+  .det dd{margin:3px 0 0;color:var(--tx)}
+  .det .quote{border-left:2px solid var(--line-2);padding-left:9px;color:var(--dim);font-style:italic}
+  .det ul{margin:4px 0 0;padding-left:17px;color:var(--dim)}
 
-  /* ENSUITE — taille moyenne */
-  #nextList .q { font-size: 16.5px; line-height: 1.35; }
-  #nextList li { border-left: 2px solid var(--border-2); }
+  /* panneau intro */
+  .intro-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px 28px;min-height:230px}
+  .intro-panel .phase{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--acc);margin-bottom:14px}
+  .intro-panel h3{font-size:17px;font-weight:600;margin:0 0 10px}
+  .intro-panel .fiche{font-size:13.5px;line-height:1.55;color:var(--dim);white-space:pre-wrap;
+                      max-height:260px;overflow-y:auto;border-left:2px solid var(--line-2);padding-left:12px}
+  .intro-steps{display:flex;gap:18px;margin:18px 0 0;font-size:12.5px;color:var(--faint)}
+  .intro-steps .st{display:flex;align-items:center;gap:7px}
+  .intro-steps .st.done{color:var(--ok)}
+  .intro-steps .mark{width:15px;height:15px;border-radius:50%;border:1px solid currentColor;
+                     display:flex;align-items:center;justify-content:center;font-size:9px}
 
-  /* À ABORDER — plus petit */
-  #laterList .q { font-size: 14px; line-height: 1.35; color: var(--dim); }
-  #laterList li { border-left: 2px solid var(--border); padding: 10px 12px; }
+  /* panneau latéral */
+  .side>section{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+  .side h3{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);
+           margin:0;padding:12px 14px;display:flex;align-items:center;gap:8px;cursor:pointer}
+  .side h3 .n{margin-left:auto;color:var(--faint);font-weight:500}
+  .side h3 .chev{font-size:9px;color:var(--faint);transition:transform var(--an) var(--ez)}
+  .side section.open h3 .chev{transform:rotate(90deg)}
+  .side .body{padding:0 14px 14px;font-size:13px}
+  .side section:not(.open) .body{display:none}
+  .ctx-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .ctx-row:last-child{border-bottom:0}
+  .ctx-row .k{color:var(--faint);flex:0 0 78px;text-transform:capitalize}
+  .ctx-row .v{color:var(--tx);flex:1}
+  ul.queue{list-style:none;margin:0;padding:0}
+  ul.queue li{padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;line-height:1.4;color:var(--dim)}
+  ul.queue li:last-child{border-bottom:0}
+  ul.queue .st{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-right:6px}
+  ul.queue li.resolue{color:var(--faint);text-decoration:line-through}
+  ul.queue li.partielle .st{color:var(--warn)}
+  ul.queue li.resolue .st{color:var(--ok)}
+  #transcriptBox{max-height:260px;overflow-y:auto;font-size:12.5px;line-height:1.5}
+  #transcriptBox p{margin:0 0 6px}
+  .who{font-weight:700;font-size:10.5px;letter-spacing:.04em;margin-right:5px}
+  .who.me{color:var(--acc)} .who.them{color:var(--ok)} .who.unk{color:var(--warn)}
+  .ts{color:var(--faint);font-size:10px;font-variant-numeric:tabular-nums;margin-right:4px}
+  .interim{color:var(--faint);font-style:italic}
 
-  .placeholder {
-    color: var(--faint); font-size: 14px; font-style: italic;
-    border: 1px dashed var(--border); border-radius: 10px; padding: 18px 14px; text-align: center;
-  }
+  /* bandeau question client */
+  .ask{background:var(--panel-2);border:1px solid var(--acc-2);border-radius:10px;padding:11px 14px;margin-bottom:14px}
+  .ask .lbl{display:block;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--acc);margin-bottom:3px}
 
-  /* ---------------- Replis ---------------- */
-  .fold {
-    background: none; border: none; color: var(--faint); font-family: inherit;
-    font-size: 12.5px; cursor: pointer; padding: 9px 2px; display: flex;
-    align-items: center; gap: 7px; width: 100%;
-  }
-  .fold .chev { font-size: 9px; transition: transform var(--anim) var(--ease); }
-  .fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
-  ul.answers { list-style: none; margin: 0 0 4px; padding: 0; }
-  ul.answers li { border-left: 1px solid var(--border-2); padding: 0 0 0 11px; margin-bottom: 12px; }
-  ul.answers .aq { font-size: 13px; color: var(--faint); line-height: 1.35; }
-  ul.answers .aa { font-size: 14.5px; color: var(--text); line-height: 1.4; margin-top: 2px; }
-  ul.answers .aw { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
-  ul.answers .aw:empty { display: none; }
+  /* test audio */
+  .meter{height:7px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+  .meter i{display:block;height:100%;background:var(--acc);width:0%;transition:width 80ms linear}
+  .verdict{font-size:14px;padding:12px 14px;border-radius:9px;border:1px solid;margin-top:14px}
+  .verdict.ok{border-color:rgba(111,160,124,.4);background:rgba(111,160,124,.08);color:#a8cdb2}
+  .verdict.warn{border-color:rgba(168,154,95,.4);background:rgba(168,154,95,.08);color:#cdbd85}
+  .verdict.bad{border-color:rgba(173,111,107,.4);background:rgba(173,111,107,.08);color:#d9a9a5}
 
-  #transcript {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px; max-height: 38vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    font-size: 13.5px; line-height: 1.5; overscroll-behavior: contain;
-  }
-  #transcript p { margin: 0 0 6px; }
-  #transcript p:last-child { margin-bottom: 0; }
-  .who { font-size: 11px; font-weight: 700; letter-spacing: .04em; margin-right: 6px; }
-  .who.me { color: var(--accent); }
-  .who.them { color: var(--ok); }
-  .ts { color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; margin-right: 5px; }
-  .interim { color: var(--faint); font-style: italic; }
-
-  /* ---------------- Options ---------------- */
-  #optPanel {
-    border: 1px solid var(--border); border-radius: 10px; padding: 4px 12px 10px;
-    background: var(--surface); margin-bottom: 10px;
-  }
-  .opt { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 13.5px; color: var(--dim); }
-  .opt .lbl { flex: 1; }
-  .sw {
-    width: 40px; height: 23px; border-radius: 999px; background: var(--border-2);
-    border: none; position: relative; cursor: pointer; flex: none;
-    transition: background var(--anim) var(--ease);
-  }
-  .sw::after {
-    content: ''; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px;
-    border-radius: 50%; background: var(--dim); transition: transform var(--anim) var(--ease);
-  }
-  .sw[aria-checked="true"] { background: var(--accent-2); }
-  .sw[aria-checked="true"]::after { transform: translateX(17px); background: var(--text); }
-
-  /* ---------------- Messages / boutons ---------------- */
-  .msg { border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; border: 1px solid; }
-  .msg.err  { background: rgba(168,106,102,.08); border-color: rgba(168,106,102,.3); color: #d6a5a2; }
-  .msg.warn { background: rgba(155,143,95,.08); border-color: rgba(155,143,95,.3); color: #c9bb86; }
-  .msg.info { background: rgba(125,148,181,.07); border-color: rgba(125,148,181,.25); color: #a9bcd4; }
-  .msg:empty { display: none; }
-  .msg .acts { display: flex; gap: 8px; margin-top: 9px; }
-
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    background: var(--surface); border: 1px solid var(--border-2); color: var(--text);
-    font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 9px;
-    padding: 10px 14px; min-height: 42px; cursor: pointer;
-  }
-  .btn:active { background: var(--surface-2); }
-  .btn:disabled { opacity: .35; cursor: default; }
-  .btn.primary { background: var(--accent-2); border-color: var(--accent-2); color: var(--text); }
-  .btn.wide { width: 100%; }
-  .btn-row { display: flex; gap: 8px; }
-  .btn-row .btn { flex: 1; }
-
-  .bar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    padding: 9px 12px calc(9px + var(--safe-b));
-    background: rgba(0,0,0,.96); border-top: 1px solid var(--border);
-    display: flex; gap: 8px;
-  }
-  .bar .btn { flex: 1; min-height: 48px; font-size: 15px; border-radius: 10px; }
-  #listenBtn.on { background: var(--surface-2); border-color: var(--danger); color: var(--text); }
-  #endBtn { flex: 0 0 auto; padding: 10px 16px; border-color: var(--border-2); color: var(--dim); }
-  #endBtn:disabled { color: var(--faint); }
-
-  .spin {
-    display: inline-block; width: 13px; height: 13px;
-    border: 2px solid rgba(232,230,227,.2); border-top-color: var(--text);
-    border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px;
-  }
-  @keyframes spin { to { transform: rotate(360deg) } }
-  @media (prefers-reduced-motion: reduce) {
-    .dot.rec, .spin { animation: none; }
-    ul.cards li, .sw, .sw::after, .fold .chev { transition-duration: 1ms; }
-  }
-
-  /* ---------------- Modale / bilan ---------------- */
-  .overlay {
-    position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.85);
-    display: flex; align-items: center; justify-content: center; padding: 20px;
-  }
-  .sheet { background: var(--surface); border: 1px solid var(--border-2); border-radius: 14px; padding: 20px; width: 100%; max-width: 420px; }
-  .sheet h2 { margin: 0 0 8px; font-size: 17px; font-weight: 650; }
-  .sheet p { margin: 0 0 14px; font-size: 13.5px; color: var(--dim); line-height: 1.45; }
-  .sheet input[type=password] {
-    width: 100%; background: var(--bg); border: 1px solid var(--border-2); border-radius: 9px;
-    color: var(--text); font-family: inherit; font-size: 16px; padding: 11px 12px; margin-bottom: 10px;
-  }
-  .sheet input:focus { outline: none; border-color: var(--accent-2); }
-
-  #summaryView {
-    position: fixed; inset: 0; z-index: 90; background: var(--bg);
-    display: flex; flex-direction: column; padding: calc(var(--safe-t) + 12px) 0 0;
-  }
-  #summaryView .sv-head { display: flex; align-items: center; gap: 10px; padding: 0 14px 10px; border-bottom: 1px solid var(--border); }
-  #summaryView .sv-head h2 { margin: 0; font-size: 16px; font-weight: 650; flex: 1; }
-  #summaryView .sv-body {
-    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px;
-    font-size: 15px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word;
-  }
-  #summaryView .sv-body h3 { margin: 20px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .09em; color: var(--accent); }
-  #summaryView .sv-body h3:first-child { margin-top: 0; }
-  #summaryView .sv-foot {
-    padding: 10px 14px calc(10px + var(--safe-b)); border-top: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: 8px; background: var(--surface);
-  }
-  .caret { display: inline-block; width: 6px; height: 1em; background: var(--accent); vertical-align: -2px; margin-left: 2px; animation: pulse 1s steps(2) infinite; }
-  .icon-btn {
-    background: none; border: 1px solid var(--border); color: var(--dim); border-radius: 8px;
-    width: 34px; height: 34px; flex: none; font-size: 14px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .center-load { text-align: center; color: var(--dim); padding: 36px 20px; font-size: 14px; }
+  /* compte rendu */
+  #reportBody{font-size:14.5px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;
+              max-height:56vh;overflow-y:auto;padding-right:6px}
+  #reportBody h3{margin:20px 0 6px;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--acc)}
+  #reportBody h3:first-child{margin-top:0}
+  .caret{display:inline-block;width:6px;height:1em;background:var(--acc);vertical-align:-2px;animation:pl 1s steps(2) infinite}
+  .corr{border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px}
+  .corr .q{color:var(--dim);font-style:italic;font-size:12px;margin-top:4px}
+  .corr .acts{display:flex;gap:6px;margin-top:8px;align-items:center}
+  .corr.done{border-color:rgba(111,160,124,.4)}
+  .corr input{flex:1}
+  .foot{font-size:11.5px;color:var(--faint);text-align:center;padding:14px 0 0;border-top:1px solid var(--line);margin-top:16px}
 </style>
 </head>
-<body class="pin-top">
+<body>
 
-<div class="statusbar">
-  <span class="dot" id="dot"></span>
-  <span id="stateLabel">Prêt</span>
-  <span id="chrono">00:00</span>
-  <span class="sp"></span>
-  <span class="chip" id="engineChip" hidden></span>
-  <span id="lat"></span>
-  <button class="icon-btn" id="optBtn" aria-label="Options" style="width:28px;height:28px;font-size:13px">⚙</button>
-</div>
+<!-- ══════════════ ÉCRAN 1 — CONFIGURATION ══════════════ -->
+<div class="screen" id="scConfig">
+  <h1>Copilote d'appel — Advisor</h1>
+  <p class="sub">Appel sur téléphone séparé, en haut-parleur. Cet ordinateur capte le son et affiche le prompteur.</p>
 
-<div class="msg err"  id="fatalMsg"></div>
-<div class="msg warn" id="micMsg"></div>
-<div class="msg info" id="resumeMsg"></div>
+  <div class="msg err" id="cfgErr"></div>
 
-<div id="optPanel" hidden>
-  <div class="opt"><span class="lbl">Afficher le « pourquoi »</span>
-    <button class="sw" id="swWhy" role="switch" aria-checked="true" aria-label="Afficher le pourquoi"></button></div>
-  <div class="opt"><span class="lbl">Question collée en haut</span>
-    <button class="sw" id="swPin" role="switch" aria-checked="true" aria-label="Question collée en haut"></button></div>
-  <div class="opt"><span class="lbl">Vibration</span>
-    <button class="sw" id="swVib" role="switch" aria-checked="false" aria-label="Vibration"></button></div>
-  <div class="opt"><span class="lbl">Inverser Moi / Client</span>
-    <button class="sw" id="swSwap" role="switch" aria-checked="false" aria-label="Inverser les locuteurs"></button></div>
-</div>
+  <div class="card">
+    <h2>Appel</h2>
+    <div class="grid2">
+      <div>
+        <label class="fld">Société représentée <span style="color:var(--dgr)">*</span></label>
+        <div class="seg" id="segSociete">
+          <button data-v="PWM" aria-pressed="false">Swiss PWM AG</button>
+          <button data-v="ADM" aria-pressed="false">Admiralty Capital Limited</button>
+        </div>
+        <div class="hint" id="cadreHint">Le cadre juridique de départ est initialisé selon la société.</div>
 
-<div class="topic-wrap" id="topicWrap">
-  <textarea id="topic" rows="3" autocomplete="off"
-    placeholder="Ex : cadrage du déploiement AppLocker avec le client — je veux obtenir le planning, le budget et les contraintes"></textarea>
-  <div id="topicHint">Décris le sujet pour que les questions soient pertinentes</div>
-</div>
-<button id="topicBar" hidden><span>✎</span><span class="txt"></span></button>
+        <label class="fld">Scénario</label>
+        <div class="seg" id="segScenario">
+          <button data-v="PWM seule" aria-pressed="false">PWM seule</button>
+          <button data-v="Admiralty seule" aria-pressed="false">Admiralty seule</button>
+          <button data-v="PWM + Admiralty" aria-pressed="false">PWM + Admiralty</button>
+          <button data-v="À confirmer" aria-pressed="true">À confirmer</button>
+        </div>
+        <div class="hint">« PWM + Admiralty » est une succession d'interventions, jamais un coprêt.</div>
+      </div>
+      <div>
+        <label class="fld">Durée prévue <span style="color:var(--dgr)">*</span></label>
+        <div class="seg" id="segDuree">
+          <button data-v="20" aria-pressed="false">20 min</button>
+          <button data-v="30" aria-pressed="false">30 min</button>
+          <button data-v="45" aria-pressed="false">45 min</button>
+          <button data-v="60" aria-pressed="false">1 h</button>
+          <button data-v="90" aria-pressed="false">1 h 30</button>
+          <button data-v="120" aria-pressed="false">2 h</button>
+        </div>
 
-<div id="askBanner" hidden><span class="lbl">Il vous demande</span><span id="askText"></span></div>
+        <label class="fld">Canal</label>
+        <div class="seg" id="segCanal">
+          <button data-v="WhatsApp" aria-pressed="true">WhatsApp</button>
+          <button data-v="Teams" aria-pressed="false">Teams</button>
+          <button data-v="Zoom" aria-pressed="false">Zoom</button>
+          <button data-v="Meet" aria-pressed="false">Meet</button>
+        </div>
+        <div class="hint">Informatif : sert à mesurer la latence par canal.</div>
 
-<div id="nowWrap">
-  <div class="tier-label">▶ Maintenant</div>
-  <ul class="cards" id="nowList"></ul>
-  <div class="placeholder" id="nowPlaceholder">Décris le sujet : la première relance apparaîtra ici.</div>
-</div>
-
-<div class="tier-label" id="nextLabel" hidden>Ensuite</div>
-<ul class="cards" id="nextList"></ul>
-
-<div class="tier-label" id="laterLabel" hidden>À aborder</div>
-<ul class="cards" id="laterList"></ul>
-
-<button class="fold" id="ansToggle" aria-expanded="false" hidden>
-  <span class="chev">▶</span><span id="ansLabel">Réponses obtenues</span>
-</button>
-<ul class="answers" id="ansList" hidden></ul>
-
-<button class="fold" id="trToggle" aria-expanded="false">
-  <span class="chev">▶</span><span>Transcription</span><span class="n" id="trCount" style="margin-left:auto;color:var(--faint)">0</span>
-</button>
-<div id="transcript" hidden></div>
-
-<nav class="bar">
-  <button class="btn primary" id="listenBtn" disabled>🎙 Écouter</button>
-  <button class="btn" id="endBtn" disabled>■ Bilan</button>
-</nav>
-
-<div class="overlay" id="pwOverlay" hidden>
-  <div class="sheet">
-    <h2>Mot de passe</h2>
-    <p id="pwText">Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.</p>
-    <input type="password" id="pwInput" autocomplete="current-password" enterkeyhint="go" placeholder="••••••••">
-    <div class="msg err" id="pwErr"></div>
-    <button class="btn primary wide" id="pwBtn">Valider</button>
-  </div>
-</div>
-
-<div id="summaryView" hidden>
-  <div class="sv-head">
-    <h2>Bilan de la réunion</h2>
-    <button class="icon-btn" id="closeSummary" aria-label="Fermer">✕</button>
-  </div>
-  <div class="sv-body" id="summaryBody"></div>
-  <div class="sv-foot">
-    <div class="btn-row">
-      <button class="btn" id="copyBtn">📋 Copier</button>
-      <button class="btn" id="dlBtn">⬇ .md</button>
+        <label class="fld">Advisor</label>
+        <input type="text" id="advisorName" placeholder="Votre nom" autocomplete="name">
+      </div>
     </div>
-    <button class="btn wide" id="newBtn">Nouvelle réunion</button>
+
+    <label class="fld">Contexte du dossier <span style="color:var(--dgr)">*</span>
+      <span class="hint">Client, projet, étape connue. 10 caractères minimum.</span></label>
+    <textarea id="dossierCtx" rows="3" placeholder="Ex : M. Dupont, projet d'hôtel 40 chambres à Lisbonne, acquisition sous 45 jours. Premier appel de qualification, aucun document reçu."></textarea>
+
+    <label class="fld">Micro</label>
+    <select id="micSelect"><option value="">Micro par défaut</option></select>
+    <div class="hint">echoCancellation et noiseSuppression désactivés : on capte un haut-parleur.</div>
+
+    <label class="fld">Documents (optionnel)
+      <span class="hint">PDF, DOCX, TXT, MD, ou l'export .md d'un appel précédent.</span></label>
+    <input type="file" id="docFiles" multiple accept=".pdf,.docx,.txt,.md,.markdown" style="font-size:13px;color:var(--dim)">
+    <div id="docList" style="font-size:12.5px;color:var(--faint);margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <label class="chk">
+      <input type="checkbox" id="consent">
+      <span>Le client a été informé de l'enregistrement et de la transcription.
+        <span class="hint" style="display:block">Obligatoire. Le bouton Démarrer reste désactivé tant que cette case n'est pas cochée.</span></span>
+    </label>
+  </div>
+
+  <div class="row" style="margin-top:4px">
+    <button class="btn primary" id="btnAudioTest" disabled>Test audio →</button>
+    <button class="btn ghost" id="btnSkipTest" disabled>Démarrer sans test</button>
+    <span style="flex:1"></span>
+    <button class="btn ghost" id="btnSettings">⚙ Paramètres</button>
+  </div>
+</div>
+
+<!-- ══════════════ ÉCRAN 2 — TEST AUDIO ══════════════ -->
+<div class="screen" id="scAudio" hidden>
+  <h1>Test de captation</h1>
+  <p class="sub">Environ 20 secondes. Parlez, puis faites parler votre interlocuteur dans le haut-parleur du téléphone.</p>
+  <div class="msg err" id="audioErr"></div>
+
+  <div class="card">
+    <h2>Niveau capté</h2>
+    <div style="font-size:12.5px;color:var(--dim)">Micro <span id="micName" style="color:var(--faint)"></span></div>
+    <div class="meter"><i id="lvlBar"></i></div>
+    <div style="font-size:12px;color:var(--faint);margin-top:8px">
+      Temps restant : <span id="testLeft" class="clock">20</span> s
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Transcription obtenue</h2>
+    <div id="testTranscript" style="font-size:13.5px;line-height:1.55;min-height:70px;color:var(--dim)">
+      En attente de parole…</div>
+    <div class="hint" style="margin-top:8px">Vérifiez surtout les noms propres et les chiffres.</div>
+  </div>
+
+  <div class="card" id="speakerCard" hidden>
+    <h2>Attribution des voix</h2>
+    <div id="speakerSamples" style="font-size:13px;line-height:1.5"></div>
+    <div style="margin-top:12px;font-size:13px;color:var(--dim)">Lequel de ces locuteurs êtes-vous ?</div>
+    <div class="seg" id="segSpeaker" style="margin-top:8px"></div>
+  </div>
+
+  <div id="verdictBox"></div>
+
+  <div class="row" style="margin-top:16px">
+    <button class="btn primary" id="btnStartCall" disabled>Démarrer l'appel →</button>
+    <button class="btn ghost" id="btnRetest">Refaire le test</button>
+    <button class="btn ghost" id="btnBackCfg">← Configuration</button>
+  </div>
+</div>
+
+<!-- ══════════════ ÉCRAN 3 — APPEL ══════════════ -->
+<div id="scCall" hidden>
+  <div class="cmd">
+    <span class="dot" id="recDot"></span>
+    <div class="grp"><span class="lbl">Société</span><span class="val" id="cSociete">—</span></div>
+    <div class="grp"><span class="lbl">Cadre</span><span class="val" id="cCadre">—</span></div>
+    <div class="grp"><span class="lbl">Durée</span>
+      <span class="val clock"><span id="cElapsed">00:00</span> / <span id="cTotal">—</span></span>
+      <span class="val clock" id="cLeft" style="color:var(--faint)"></span>
+    </div>
+    <div class="grp"><span class="lbl">Phase</span><span class="val" id="cPhase">Introduction</span></div>
+    <span class="sp"></span>
+    <div class="seg" id="segCat">
+      <button data-v="strategique" aria-pressed="true">Stratégique</button>
+      <button data-v="juridique" aria-pressed="false">Juridique</button>
+      <button data-v="financier" aria-pressed="false">Financier</button>
+    </div>
+    <button class="btn sm ghost" id="btnNextCat">Catégorie suivante →</button>
+    <button class="btn sm ghost" id="btnChangeDur">Modifier la durée</button>
+    <span class="lbl" id="latLbl"></span>
+    <button class="btn sm ghost" id="btnEnd">Terminer l'appel</button>
+  </div>
+  <div class="frieze" id="frieze"></div>
+  <div class="frieze-lbl" id="friezeLbl"></div>
+
+  <div class="stage">
+    <div>
+      <div class="msg warn" id="callWarn"></div>
+      <div class="ask" id="askBox" hidden><span class="lbl">Il vous demande</span><span id="askTxt"></span></div>
+
+      <!-- Panneau d'introduction : AUCUNE question ici -->
+      <div class="intro-panel" id="introPanel">
+        <div class="phase">Phase d'introduction</div>
+        <h3 id="introTitle">Présentation en cours…</h3>
+        <div class="fiche" id="introFiche"></div>
+        <div class="intro-steps">
+          <span class="st" id="stAdvisor"><span class="mark">1</span> Présentation de la société</span>
+          <span class="st" id="stClient"><span class="mark">2</span> Description du client</span>
+        </div>
+        <div class="row" style="margin-top:18px">
+          <button class="btn primary" id="btnStartQuestions">Commencer les questions →</button>
+        </div>
+        <div class="hint" style="margin-top:8px">Aucune suggestion ne s'affiche tant que l'introduction n'est pas terminée. Les questions sont préparées en arrière-plan.</div>
+      </div>
+
+      <!-- Prompteur -->
+      <div class="prompter" id="prompter" hidden>
+        <div class="meta">
+          <span class="badge" id="pType">question</span>
+          <span class="badge" id="pCat">stratégique</span>
+          <span class="badge lock" id="pLock" hidden>🔒 en cours de lecture</span>
+          <span class="badge stale" id="pStale" hidden>⚠ à actualiser</span>
+          <span class="badge old" id="pOld" hidden>⚠ suggestion possiblement dépassée</span>
+          <span class="sp" style="flex:1"></span>
+          <span class="badge" id="pPending" hidden>1 en attente</span>
+        </div>
+        <div id="promptText"></div>
+        <div class="acts">
+          <button class="btn sm" id="btnDeeper">Approfondir</button>
+          <button class="btn sm" id="btnForward">Avancer</button>
+          <button class="btn sm ghost" id="btnVariants">Variantes</button>
+          <button class="btn sm ghost" id="btnPrev">◀ Précédente</button>
+          <span class="sp"></span>
+          <button class="btn sm ghost" id="btnAuto">⏸ Pause auto</button>
+        </div>
+        <div id="variantBox" hidden style="margin-top:12px;font-size:13.5px;color:var(--dim)"></div>
+        <details class="det" id="detBox">
+          <summary>Détails</summary>
+          <dl id="detList"></dl>
+        </details>
+      </div>
+    </div>
+
+    <div class="side">
+      <section id="sCtx" class="open">
+        <h3 data-fold="sCtx"><span class="chev">▶</span>Contexte capté<span class="n" id="nCtx"></span></h3>
+        <div class="body" id="ctxCaptured"><div style="color:var(--faint);font-size:12.5px">En attente de la description du client…</div></div>
+      </section>
+      <section id="sQueue">
+        <h3 data-fold="sQueue"><span class="chev">▶</span>File des questions<span class="n" id="nQueue">0</span></h3>
+        <div class="body"><ul class="queue" id="queueList"></ul></div>
+      </section>
+      <section id="sTr">
+        <h3 data-fold="sTr"><span class="chev">▶</span>Transcription<span class="n" id="nTr">0</span></h3>
+        <div class="body"><div id="transcriptBox"></div></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ ÉCRAN 4 — COMPTE RENDU ══════════════ -->
+<div class="screen" id="scReport" hidden>
+  <h1>Compte rendu d'appel</h1>
+  <p class="sub" id="reportSub"></p>
+  <div class="card" id="corrCard" hidden>
+    <h2>Corrections sensibles à confirmer</h2>
+    <div class="hint" style="margin-bottom:12px">Montants, noms et dates issus de la transcription. Validez ou corrigez avant l'export.</div>
+    <div id="corrList"></div>
+  </div>
+  <div class="card"><div id="reportBody"></div></div>
+  <div class="row">
+    <button class="btn" id="btnCopy">📋 Copier</button>
+    <button class="btn" id="btnDl">⬇ Télécharger .md</button>
+    <span style="flex:1"></span>
+    <button class="btn ghost" id="btnBackCall">← Retour à l'appel</button>
+    <button class="btn ghost" id="btnNewCall">Nouvel appel</button>
+  </div>
+  <div class="foot">Ce compte rendu ne constitue ni une décision de qualification ni un accord de financement.</div>
+</div>
+
+<!-- ══════════════ ÉCRAN 5 — PARAMÈTRES ══════════════ -->
+<div class="screen" id="scSettings" hidden>
+  <h1>Paramètres</h1>
+  <p class="sub">Stockés sur ce poste. La fiche institutionnelle et les règles validées sont la seule base autorisée pour répondre au client.</p>
+  <div class="card">
+    <h2>Swiss PWM AG</h2>
+    <label class="fld">Fiche institutionnelle validée</label>
+    <textarea id="fichePWM" rows="6" placeholder="Texte de présentation validé de l'entité…"></textarea>
+    <label class="fld">Règles validées <span class="hint">Avec date et source. Si vide, toute question de taux, frais, délai ou critère renvoie « à confirmer ».</span></label>
+    <textarea id="reglesPWM" rows="5" placeholder="Ex : Ticket 1–10 M CHF — source : note du 01/09/2026"></textarea>
+  </div>
+  <div class="card">
+    <h2>Admiralty Capital Limited</h2>
+    <label class="fld">Fiche institutionnelle validée</label>
+    <textarea id="ficheADM" rows="6"></textarea>
+    <label class="fld">Règles validées</label>
+    <textarea id="reglesADM" rows="5"></textarea>
+  </div>
+  <div class="row">
+    <button class="btn primary" id="btnSaveSettings">Enregistrer</button>
+    <button class="btn ghost" id="btnExportSettings">Exporter en JSON</button>
+    <button class="btn ghost" id="btnImportSettings">Importer</button>
+    <input type="file" id="importFile" accept=".json" hidden>
+    <span style="flex:1"></span>
+    <button class="btn ghost" id="btnCloseSettings">← Retour</button>
+  </div>
+  <div class="msg info" id="settingsMsg" style="margin-top:12px"></div>
+</div>
+
+<!-- mot de passe -->
+<div id="pwOverlay" hidden style="position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div class="card" style="max-width:400px;width:100%;margin:0">
+    <h2>Mot de passe</h2>
+    <p id="pwText" style="font-size:13.5px;color:var(--dim);margin:0 0 12px"></p>
+    <input type="password" id="pwInput" placeholder="••••••••">
+    <div class="msg err" id="pwErr" style="margin-top:10px"></div>
+    <button class="btn primary" id="pwBtn" style="width:100%;margin-top:10px">Valider</button>
   </div>
 </div>
 
 <script>
 (function () {
   'use strict';
-
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const mmss = (ms) => {
-    const t = Math.max(0, Math.floor(ms / 1000));
-    return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+  const mmss = (ms) => { const t = Math.max(0, Math.floor(ms / 1000));
+    return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+
+  const LS = { pw:'adv.pw.v1', set:'adv.settings.v1', cfg:'adv.cfg.v1', call:'adv.call.v1' };
+  const lsGet = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch(e){ return null; } };
+  const lsSet = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } };
+  const lsDel = (k) => { try { localStorage.removeItem(k); } catch(e){} };
+
+  const CADRE = { PWM: { nom:'Swiss PWM AG', cadre:'Suisse' }, ADM: { nom:'Admiralty Capital Limited', cadre:'Hong Kong' } };
+  const CAT_LABEL = { strategique:'Stratégique', juridique:'Juridique', financier:'Financier' };
+  const CAT_ORDER = ['strategique','juridique','financier'];
+
+  const SELECT_MIN_GAP = 1500;     // plafond de sécurité du sélecteur
+  const PREPARE_EVERY  = 20000;    // préparateur en arrière-plan
+  const PING_EVERY     = 240000;
+
+  /* ------------------------------- état --------------------------------- */
+  const S = {
+    screen:'config', password:'',
+    cfg:{ societe:'', scenario:'À confirmer', duree:0, canal:'WhatsApp', advisor:'', contexte:'', mic:'', consent:false },
+    docs:[], settings:{ PWM:{fiche:'',regles:''}, ADM:{fiche:'',regles:''} },
+    plan:null, reserve:[],
+    // appel
+    started:false, listening:false, t0:0, elapsedMs:0, lastResume:0,
+    phase:'intro', introState:{ advisorPresented:false, clientDescribed:false },
+    introForced:false, pausedAuto:false,
+    categorie:'strategique',
+    segments:[], interim:'', interimSp:null,
+    facts:[], questions:[], qSeq:0,
+    contexte:{}, contradictions:[], pieces:[], resume:'',
+    current:null, pending:null, history:[], variants:[],
+    locked:false, stale:false, ask:'',
+    latencies:[], lastSelectAt:0, selectInflight:null, prepInflight:null,
+    engine:null, speakerMe:null, reportText:'', corrections:[]
   };
+  const nextQid = () => 'q' + (++S.qSeq);
 
-  const LS_PW = 'mc.pw.v2', LS_TOPIC = 'mc.topic.v2', LS_MEETING = 'mc.meeting.v4', LS_OPT = 'mc.opt.v1';
-  const lsGet = (k) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch (e) { return null; } };
-  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
-  const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) { /* ignoré */ } };
-
-  /* ------------------------------ Réglages ------------------------------- */
-  const MIN_TOPIC_CHARS  = 10;
-  const MIN_GAP_MS       = 2000;   // plafond de sécurité : 1 appel / 2 s
-  const INTERIM_DEBOUNCE = 1200;   // analyse sur texte intermédiaire
-  const NOW_MIN_MS       = 4000;   // la question MAINTENANT tient au moins 4 s
-  const ANSWER_HOLD_MS   = 1800;
-  const ANIM_MS          = 180;
-  const DIGEST_EVERY_MS  = 120000; // résumé roulant toutes les 2 min
-  const PING_EVERY_MS    = 240000; // préchauffage toutes les 4 min
-  const LAT_WINDOW       = 5;
-  const N_NEXT = 4, N_LATER = 3;
-
-  /* -------------------------------- État --------------------------------- */
-  const state = {
-    listening: false, started: false, ended: false,
-    segments: [],            // { t, who:'me'|'them', text }
-    interim: '', interimSp: null,
-    now: null, next: [], later: [],   // { id, text, why, at }
-    answers: [], retired: [],
-    ask: '',
-    digest: '', digestAt: 0,
-    elapsedMs: 0, lastResume: 0,
-    chronoTimer: null, pingTimer: null, digestTimer: null, gapTimer: null, interimTimer: null,
-    wakeLock: null,
-    inflight: null, lastStart: 0, lastAnalyzedLen: 0,
-    latencies: [],
-    summaryText: '', password: '',
-    engine: null,            // 'deepgram' | 'webspeech' | null
-    topicCollapsed: false
-  };
-  let qSeq = 0;
-  const nextId = () => 'q' + (++qSeq);
-
-  /* ------------------------------- Options ------------------------------- */
-  const opt = Object.assign({ why: true, pin: true, vib: false, swap: false }, lsGet(LS_OPT) || {});
-
-  function applyOptions() {
-    document.body.classList.toggle('hide-why', !opt.why);
-    document.body.classList.toggle('pin-top', !!opt.pin);
-    $('swWhy').setAttribute('aria-checked', String(!!opt.why));
-    $('swPin').setAttribute('aria-checked', String(!!opt.pin));
-    $('swVib').setAttribute('aria-checked', String(!!opt.vib));
-    $('swSwap').setAttribute('aria-checked', String(!!opt.swap));
-  }
-  function bindSwitch(id, key, after) {
-    $(id).addEventListener('click', () => {
-      opt[key] = !opt[key];
-      lsSet(LS_OPT, opt);
-      applyOptions();
-      if (after) after();
-    });
-  }
-  bindSwitch('swWhy', 'why');
-  bindSwitch('swPin', 'pin');
-  bindSwitch('swVib', 'vib');
-  bindSwitch('swSwap', 'swap', () => renderTranscript());
-  $('optBtn').addEventListener('click', () => { $('optPanel').hidden = !$('optPanel').hidden; });
-
-  const buzz = () => { if (opt.vib) { try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) { /* ignoré */ } } };
-
-  /* ---------------------------- Mot de passe ----------------------------- */
+  /* ------------------------- mot de passe ------------------------------- */
   let pwResolve = null;
   function askPassword(reason) {
-    $('pwText').textContent = reason || 'Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.';
-    $('pwErr').innerHTML = ''; $('pwInput').value = '';
+    $('pwText').textContent = reason || 'Saisis le mot de passe de l’application.';
+    $('pwErr').textContent = ''; $('pwInput').value = '';
     $('pwOverlay').hidden = false;
-    setTimeout(() => $('pwInput').focus(), 80);
-    return new Promise((resolve) => { pwResolve = resolve; });
+    setTimeout(() => $('pwInput').focus(), 60);
+    return new Promise((r) => { pwResolve = r; });
   }
-  function submitPassword() {
+  function submitPw() {
     const v = $('pwInput').value;
     if (!v) { $('pwErr').textContent = 'Saisis un mot de passe.'; return; }
-    state.password = v; lsSet(LS_PW, v);
-    $('pwOverlay').hidden = true;
+    S.password = v; lsSet(LS.pw, v); $('pwOverlay').hidden = true;
     if (pwResolve) { const r = pwResolve; pwResolve = null; r(v); }
   }
-  $('pwBtn').addEventListener('click', submitPassword);
-  $('pwInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitPassword(); } });
+  $('pwBtn').addEventListener('click', submitPw);
+  $('pwInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitPw(); } });
 
-  /* ------------------------------ Appels API ----------------------------- */
-  // Renvoie l'objet « done ». onDelta reçoit le texte au fil de l'eau.
-  // signal permet d'annuler : stratégie « le plus récent gagne ».
-  async function callApi(payload, onDelta, signal, allowRetry) {
-    if (!state.password) {
-      await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
-    }
+  /* ---------------------------- appels API ------------------------------ */
+  async function api(payload, onDelta, signal, noRetry) {
+    if (!S.password) await askPassword('Saisis le mot de passe de l’application.');
+    const set = S.settings[S.cfg.societe] || { fiche:'', regles:'' };
+    const body = Object.assign({
+      societe: S.cfg.societe, fiche: set.fiche, regles: set.regles,
+      contexte: S.cfg.contexte, scenario: S.cfg.scenario, plan: S.plan
+    }, payload);
     let res;
     try {
-      res = await fetch('/api/claude', {
-        method: 'POST', signal,
-        headers: { 'Content-Type': 'application/json', 'x-app-password': state.password },
-        body: JSON.stringify(Object.assign({ topic: topicValue() }, payload))
-      });
+      res = await fetch('/api/claude', { method:'POST', signal,
+        headers:{ 'Content-Type':'application/json', 'x-app-password': S.password },
+        body: JSON.stringify(body) });
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
       throw new Error('Serveur injoignable — vérifie ta connexion.');
     }
-
     if (res.status === 401) {
-      state.password = ''; lsDel(LS_PW);
-      if (allowRetry !== false) {
-        await askPassword('Mot de passe refusé. Saisis celui défini dans APP_PASSWORD sur Vercel.');
-        return callApi(payload, onDelta, signal, false);
-      }
+      S.password = ''; lsDel(LS.pw);
+      if (!noRetry) { await askPassword('Mot de passe refusé. Saisis celui défini dans APP_PASSWORD.'); return api(payload, onDelta, signal, true); }
       throw new Error('Mot de passe refusé.');
     }
     if (!res.ok) {
-      let data = null;
-      try { data = await res.json(); } catch (e) { /* non JSON */ }
-      const err = new Error((data && data.error) || ('Erreur serveur ' + res.status + '.'));
-      err.status = res.status;
-      throw err;
+      let d = null; try { d = await res.json(); } catch(e){}
+      const err = new Error((d && d.error) || ('Erreur serveur ' + res.status + '.')); err.status = res.status; throw err;
     }
-
-    const ctype = res.headers.get('content-type') || '';
-    if (ctype.indexOf('text/event-stream') === -1 || !res.body) {
-      const data = await res.json().catch(() => null);
-      if (!data) throw new Error('Réponse vide du serveur.');
-      return data;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.indexOf('text/event-stream') === -1 || !res.body) {
+      const d = await res.json().catch(() => null);
+      if (!d) throw new Error('Réponse vide du serveur.'); return d;
     }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '', result = null, streamError = null, firstDelta = true;
-
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = '', done = null, errTxt = null, first = true;
     for (;;) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      buf += decoder.decode(chunk.value, { stream: true });
-      const blocks = buf.split('\n\n');
-      buf = blocks.pop();
-      for (let i = 0; i < blocks.length; i++) {
-        const ev = (blocks[i].match(/^event: (\w+)$/m) || [])[1];
-        const raw = (blocks[i].match(/^data: (.*)$/m) || [])[1];
+      const c = await reader.read(); if (c.done) break;
+      buf += dec.decode(c.value, { stream:true });
+      const blocks = buf.split('\n\n'); buf = blocks.pop();
+      for (const b of blocks) {
+        const ev = (b.match(/^event: (\w+)$/m) || [])[1];
+        const raw = (b.match(/^data: (.*)$/m) || [])[1];
         if (!ev || !raw) continue;
-        let data = null;
-        try { data = JSON.parse(raw); } catch (e) { continue; }
-        if (ev === 'delta') {
-          if (firstDelta) { firstDelta = false; if (onDelta) onDelta('', true); }
-          if (onDelta) onDelta(data.t || '');
-        } else if (ev === 'done') result = data;
-        else if (ev === 'usage') state.lastUsage = data;
-        else if (ev === 'error') streamError = data.error;
+        let d = null; try { d = JSON.parse(raw); } catch(e){ continue; }
+        if (ev === 'delta') { if (first) { first = false; if (onDelta) onDelta('', true); } if (onDelta) onDelta(d.t || ''); }
+        else if (ev === 'done') done = d;
+        else if (ev === 'usage') S.lastUsage = d;
+        else if (ev === 'error') errTxt = d.error;
       }
     }
-    if (!result && streamError) throw new Error(streamError);
-    if (!result) throw new Error('Flux interrompu avant la fin.');
-    return result;
+    if (!done && errTxt) throw new Error(errTxt);
+    if (!done) throw new Error('Flux interrompu avant la fin.');
+    return done;
+  }
+  function ping() {
+    fetch('/api/claude', { method:'POST',
+      headers:{ 'Content-Type':'application/json', 'x-app-password': S.password || '' },
+      body: JSON.stringify({ mode:'ping' }) }).catch(() => {});
   }
 
-  /* ------------------------------- Latence ------------------------------- */
-  function recordLatency(ms) {
-    state.latencies.push(ms);
-    if (state.latencies.length > LAT_WINDOW) state.latencies.shift();
-    const avg = state.latencies.reduce((a, b) => a + b, 0) / state.latencies.length;
-    $('lat').textContent = '⚡ ' + (avg / 1000).toFixed(1) + ' s';
+  /* ------------------------------ écrans -------------------------------- */
+  const SCREENS = { config:'scConfig', audio:'scAudio', call:'scCall', report:'scReport', settings:'scSettings' };
+  function show(name) {
+    S.screen = name;
+    Object.keys(SCREENS).forEach((k) => { $(SCREENS[k]).hidden = (k !== name); });
+    window.scrollTo(0, 0);
   }
 
-  /* ========================== TRANSCRIPTION ============================== */
-  const transcriptEl = $('transcript');
-  let interimEl = null;
-
-  const elapsedNow = () => state.elapsedMs + (state.listening ? Date.now() - state.lastResume : 0);
-  const speakerLabel = (who) => (who === 'me' ? 'Moi' : 'Client');
-
-  // Deepgram numérote les locuteurs (0, 1…). Le premier entendu est « Moi »
-  // par défaut — c'est en général vous qui ouvrez. L'option « Inverser
-  // Moi / Client » corrige d'un geste si la réunion commence autrement.
-  let firstSpeaker = null;
-  function noteSpeaker(n) {
-    if (n === null || n === undefined) return null;
-    if (firstSpeaker === null) firstSpeaker = n;
-    return n;
+  /* --------------------------- segmented controls ------------------------ */
+  function segment(id, onPick) {
+    const el = $(id);
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]'); if (!b) return;
+      Array.prototype.forEach.call(el.querySelectorAll('button'), (x) => x.setAttribute('aria-pressed','false'));
+      b.setAttribute('aria-pressed','true');
+      onPick(b.dataset.v);
+    });
   }
-  // Résolu à l'affichage : inverser Moi/Client corrige TOUTE la transcription,
-  // y compris les passages déjà écrits.
+  function segSet(id, v) {
+    Array.prototype.forEach.call($(id).querySelectorAll('button'), (b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.v === String(v)));
+    });
+  }
+
+  segment('segSociete', (v) => {
+    S.cfg.societe = v;
+    $('cadreHint').textContent = 'Cadre juridique de départ : ' + CADRE[v].cadre +
+      '. Les pays de l’emprunteur, du projet et des actifs restent pris en compte.';
+    saveCfg(); validateCfg();
+  });
+  segment('segScenario', (v) => { S.cfg.scenario = v; saveCfg(); });
+  segment('segDuree',    (v) => { S.cfg.duree = Number(v); saveCfg(); validateCfg(); });
+  segment('segCanal',    (v) => { S.cfg.canal = v; saveCfg(); });
+  ['advisorName','dossierCtx'].forEach((id) => {
+    $(id).addEventListener('input', () => {
+      if (id === 'advisorName') S.cfg.advisor = $(id).value.trim();
+      else S.cfg.contexte = $(id).value.trim();
+      saveCfg(); validateCfg();
+    });
+  });
+  $('consent').addEventListener('change', () => { S.cfg.consent = $('consent').checked; validateCfg(); });
+  $('micSelect').addEventListener('change', () => { S.cfg.mic = $('micSelect').value; saveCfg(); });
+
+  function saveCfg() { lsSet(LS.cfg, S.cfg); }
+  function validateCfg() {
+    const ok = !!S.cfg.societe && !!S.cfg.duree && S.cfg.contexte.length >= 10 && S.cfg.consent;
+    $('btnAudioTest').disabled = !ok;
+    $('btnSkipTest').disabled = !ok;
+    const miss = [];
+    if (!S.cfg.societe) miss.push('la société');
+    if (!S.cfg.duree) miss.push('la durée');
+    if (S.cfg.contexte.length < 10) miss.push('le contexte du dossier (10 caractères min.)');
+    if (!S.cfg.consent) miss.push('la confirmation d’information du client');
+    $('cfgErr').textContent = miss.length ? 'À compléter : ' + miss.join(', ') + '.' : '';
+  }
+
+  /* ----------------------------- documents ------------------------------ */
+  $('docFiles').addEventListener('change', async (e) => {
+    const files = Array.prototype.slice.call(e.target.files || []);
+    for (const f of files) {
+      let text = '';
+      if (/\.(txt|md|markdown)$/i.test(f.name)) { try { text = await f.text(); } catch(err) {} }
+      S.docs.push({ name:f.name, size:f.size, text:text.slice(0, 20000), extractable: !!text });
+    }
+    $('docList').innerHTML = S.docs.map((d) =>
+      '• ' + esc(d.name) + (d.extractable ? '' : ' <span style="color:var(--warn)">(contenu non extrait dans le navigateur — à résumer dans le contexte)</span>')
+    ).join('<br>');
+  });
+
+  /* ---------------------------- paramètres ------------------------------ */
+  function loadSettings() {
+    const s = lsGet(LS.set);
+    if (s && s.PWM && s.ADM) S.settings = s;
+    $('fichePWM').value = S.settings.PWM.fiche || '';
+    $('reglesPWM').value = S.settings.PWM.regles || '';
+    $('ficheADM').value = S.settings.ADM.fiche || '';
+    $('reglesADM').value = S.settings.ADM.regles || '';
+  }
+  $('btnSettings').addEventListener('click', () => { loadSettings(); show('settings'); });
+  $('btnCloseSettings').addEventListener('click', () => show(S.started ? 'call' : 'config'));
+  $('btnSaveSettings').addEventListener('click', () => {
+    S.settings = {
+      PWM:{ fiche:$('fichePWM').value.trim(), regles:$('reglesPWM').value.trim() },
+      ADM:{ fiche:$('ficheADM').value.trim(), regles:$('reglesADM').value.trim() }
+    };
+    lsSet(LS.set, S.settings);
+    $('settingsMsg').textContent = 'Paramètres enregistrés sur ce poste.';
+    setTimeout(() => { $('settingsMsg').textContent = ''; }, 3000);
+  });
+  $('btnExportSettings').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(S.settings, null, 2)], { type:'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'copilote-parametres.json'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('btnImportSettings').addEventListener('click', () => $('importFile').click());
+  $('importFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const j = JSON.parse(await f.text());
+      if (j && j.PWM && j.ADM) { S.settings = j; lsSet(LS.set, j); loadSettings(); $('settingsMsg').textContent = 'Paramètres importés.'; }
+      else $('settingsMsg').textContent = 'Fichier invalide : clés PWM et ADM attendues.';
+    } catch (err) { $('settingsMsg').textContent = 'Fichier illisible.'; }
+  });
+
+  /* --------------------------- transcription ---------------------------- */
+  const elapsedNow = () => S.elapsedMs + (S.listening ? Date.now() - S.lastResume : 0);
   function whoOf(sp) {
-    if (sp === null || sp === undefined) return 'them';
-    const isFirst = sp === firstSpeaker;
-    return (isFirst !== !!opt.swap) ? 'me' : 'them';
+    if (sp === null || sp === undefined) return 'unk';
+    if (S.speakerMe === null || S.speakerMe === undefined) return 'unk';
+    return sp === S.speakerMe ? 'me' : 'them';
   }
+  const whoLabel = (w) => (w === 'me' ? 'Advisor' : w === 'them' ? 'Client' : 'Incertain');
 
   function fullText() {
-    return state.segments.map((s) => '[' + mmss(s.t) + '] ' + speakerLabel(whoOf(s.sp)) + ' : ' + s.text).join('\n');
+    return S.segments.map((s) => '[' + mmss(s.t) + '] ' + whoLabel(whoOf(s.sp)) + ' : ' + s.text).join('\n');
   }
-  function liveText() {
-    const tail = state.segments.slice(-60)
-      .map((s) => speakerLabel(whoOf(s.sp)) + ' : ' + s.text).join('\n');
-    // Le texte encore en cours est marqué : l'IA anticipe où va la phrase.
-    return state.interim
-      ? tail + '\n' + speakerLabel(whoOf(state.interimSp)) + ' [EN COURS] : ' + state.interim
-      : tail;
+  function recentText() {
+    const tail = S.segments.slice(-40).map((s) => whoLabel(whoOf(s.sp)) + ' : ' + s.text).join('\n');
+    return S.interim ? tail + '\n' + whoLabel(whoOf(S.interimSp)) + ' [EN COURS] : ' + S.interim : tail;
   }
 
-  function initTranscriptDom() {
-    transcriptEl.innerHTML = '';
-    interimEl = document.createElement('p');
-    interimEl.className = 'interim';
-    interimEl.style.display = 'none';
-    transcriptEl.appendChild(interimEl);
-  }
-  function segNode(s) {
-    const who = whoOf(s.sp);
-    const p = document.createElement('p');
-    p.innerHTML = '<span class="ts">[' + mmss(s.t) + ']</span>' +
-      '<span class="who ' + who + '">' + speakerLabel(who) + ' :</span>' + esc(s.text);
-    return p;
-  }
   function renderTranscript() {
-    initTranscriptDom();
-    const frag = document.createDocumentFragment();
-    state.segments.forEach((s) => frag.appendChild(segNode(s)));
-    transcriptEl.insertBefore(frag, interimEl);
-    transcriptEl.scrollTop = transcriptEl.scrollHeight;
-    $('trCount').textContent = state.segments.length;
+    const box = $('transcriptBox');
+    box.innerHTML = S.segments.map((s) => {
+      const w = whoOf(s.sp);
+      return '<p><span class="ts">' + mmss(s.t) + '</span><span class="who ' + w + '">' +
+        whoLabel(w) + ' :</span>' + esc(s.text) + '</p>';
+    }).join('') + (S.interim ? '<p class="interim">' + esc(S.interim) + '</p>' : '');
+    box.scrollTop = box.scrollHeight;
+    $('nTr').textContent = S.segments.length;
   }
 
   function addSegment(text, sp) {
-    const clean = text.replace(/\s+/g, ' ').trim();
+    const clean = String(text).replace(/\s+/g, ' ').trim();
     if (!clean) return;
-    const seg = { t: elapsedNow(), sp: (sp === undefined ? null : sp), text: clean };
-    state.segments.push(seg);
-    const stick = transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight < 60;
-    transcriptEl.insertBefore(segNode(seg), interimEl);
-    if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
-    $('trCount').textContent = state.segments.length;
-    persist();
-    // Le client vient de poser une question → relance immédiate.
-    if (whoOf(seg.sp) === 'them' && /\?/.test(seg.text)) requestAnalyze('question');
+    S.segments.push({ t: elapsedNow(), sp: (sp === undefined ? null : sp), text: clean });
+    renderTranscript(); persist();
+    const w = whoOf(sp);
+    // Verrouillage du prompteur : l'advisor a commencé à parler.
+    if (w === 'me' && S.current && !S.locked) lockPrompter();
+    if (w === 'them' && /\?/.test(clean)) requestSelect('question-client');
   }
-
   function setInterim(text, sp) {
-    state.interim = text;
-    state.interimSp = (sp === undefined ? null : sp);
-    if (interimEl) {
-      if (text) {
-        interimEl.textContent = speakerLabel(whoOf(state.interimSp)) + ' : ' + text;
-        interimEl.style.display = '';
-        transcriptEl.scrollTop = transcriptEl.scrollHeight;
-      } else { interimEl.textContent = ''; interimEl.style.display = 'none'; }
-    }
-    // Analyse anticipée pendant que la phrase se construit.
-    clearTimeout(state.interimTimer);
-    if (text && state.listening) {
-      state.interimTimer = setTimeout(() => requestAnalyze('interim'), INTERIM_DEBOUNCE);
-    }
+    S.interim = String(text || ''); S.interimSp = (sp === undefined ? null : sp);
+    renderTranscript();
+    if (S.interim && whoOf(sp) === 'me' && S.current && !S.locked) lockPrompter();
   }
 
-  /* ------------------------------ Deepgram ------------------------------- */
-  const DG_URL = 'wss://api.deepgram.com/v1/listen?' + [
-    'model=nova-3', 'language=fr', 'interim_results=true', 'smart_format=true',
-    'diarize=true', 'endpointing=300', 'utterance_end_ms=1000'
-  ].join('&');
+  /* ══════════════ PHASE D'INTRODUCTION ══════════════
+     Règle non négociable : aucune suggestion tant que l'intro n'est pas finie.
+     Le passage exige : advisor présenté ET client décrit (jugé par le backend),
+     PUIS une pause naturelle après un tour de parole du client.            */
+  let awaitingPause = false;
 
-  const dg = { ws: null, rec: null, stream: null, token: null, proto: 0, closing: false, retry: 0 };
-
-  async function getDeepgramToken() {
-    if (!state.password) await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
-    const res = await fetch('/api/deepgram-token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-app-password': state.password }
-    });
-    if (res.status === 401) { state.password = ''; lsDel(LS_PW); throw new Error('Mot de passe refusé.'); }
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data || !data.access_token) {
-      throw new Error((data && data.error) || 'Jeton Deepgram indisponible.');
+  function renderIntro() {
+    const set = S.settings[S.cfg.societe] || { fiche:'' };
+    const fiche = (set.fiche || '').trim();
+    if (fiche) {
+      $('introTitle').textContent = 'Repères de présentation — ' + CADRE[S.cfg.societe].nom;
+      $('introFiche').textContent = fiche;
+      $('introFiche').hidden = false;
+    } else {
+      $('introTitle').textContent = 'Présentation en cours…';
+      $('introFiche').hidden = true;
     }
-    return data.access_token;
+    $('stAdvisor').classList.toggle('done', S.introState.advisorPresented);
+    $('stClient').classList.toggle('done', S.introState.clientDescribed);
+    $('stAdvisor').querySelector('.mark').textContent = S.introState.advisorPresented ? '✓' : '1';
+    $('stClient').querySelector('.mark').textContent = S.introState.clientDescribed ? '✓' : '2';
   }
 
-  async function startDeepgram() {
-    dg.token = await getDeepgramToken();
-    dg.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        // On capte des haut-parleurs : surtout ne pas filtrer la voix du client.
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: true
-      }
-    });
-    await openDeepgramSocket();
+  function renderContexte() {
+    const keys = Object.keys(S.contexte || {});
+    $('nCtx').textContent = keys.length ? keys.length : '';
+    if (!keys.length) {
+      $('ctxCaptured').innerHTML = '<div style="color:var(--faint);font-size:12.5px">En attente de la description du client…</div>';
+      return;
+    }
+    const L = { parcours:'Parcours', activite:'Activité', projet:'Projet', besoin:'Besoin', montant:'Montant', calendrier:'Calendrier' };
+    $('ctxCaptured').innerHTML = keys.map((k) =>
+      '<div class="ctx-row"><span class="k">' + esc(L[k] || k) + '</span><span class="v">' + esc(S.contexte[k]) + '</span></div>'
+    ).join('');
   }
 
-  // L'authentification WebSocket navigateur de Deepgram n'est pas documentée
-  // publiquement : on essaie « bearer » puis « token ». Le premier qui tient
-  // est mémorisé pour les reconnexions.
-  const DG_PROTOCOLS = [['bearer', 'token'], ['token', 'token']];
+  // Sortie d'introduction : automatique (pause après tour client) ou manuelle.
+  function maybeLeaveIntro(reason) {
+    if (S.phase !== 'intro') return;
+    if (reason !== 'manuel') {
+      if (!(S.introState.advisorPresented && S.introState.clientDescribed)) return;
+      if (!awaitingPause) return;        // il faut une pause après le tour du client
+    }
+    awaitingPause = false;
+    S.phase = 'questions';
+    S.introForced = (reason === 'manuel');
+    $('introPanel').hidden = true;
+    $('prompter').hidden = false;
+    $('cPhase').textContent = 'Questions';
+    if (S.pending) promote(); else requestSelect('sortie-intro');
+    persist();
+  }
 
-  function openDeepgramSocket() {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const scheme = DG_PROTOCOLS[dg.proto] ? DG_PROTOCOLS[dg.proto][0] : 'bearer';
-      let ws;
-      try { ws = new WebSocket(DG_URL, [scheme, dg.token]); }
-      catch (e) { reject(e); return; }
-      dg.ws = ws;
+  $('btnStartQuestions').addEventListener('click', () => maybeLeaveIntro('manuel'));
 
-      const failOpen = setTimeout(() => {
-        if (!settled) { settled = true; try { ws.close(); } catch (e) {} reject(new Error('Deepgram : délai dépassé.')); }
-      }, 8000);
+  /* ══════════════ PROMPTEUR STABLE ══════════════ */
+  function renderPrompter() {
+    const c = S.current;
+    if (!c) {
+      $('promptText').innerHTML = '<span style="color:var(--faint);font-size:19px">Préparation de la prochaine intervention…</span>';
+      $('detList').innerHTML = ''; return;
+    }
+    $('promptText').textContent = c.texte;
+    $('pType').textContent = c.type || 'question';
+    $('pCat').textContent = CAT_LABEL[c.categorie] || c.categorie || '';
+    $('pLock').hidden = !S.locked;
+    $('pStale').hidden = !S.stale;
+    $('pOld').hidden = !c.outdated;
+    $('pPending').hidden = !S.pending;
+    const d = [];
+    if (c.objectif) d.push('<dt>Objectif métier</dt><dd>' + esc(c.objectif) + '</dd>');
+    if (c.sourceCitation) d.push('<dt>Propos source' + (c.sourceHorodatage ? ' — ' + esc(c.sourceHorodatage) : '') +
+      '</dt><dd class="quote">« ' + esc(c.sourceCitation) + ' »</dd>');
+    if (c.aPreciser) d.push('<dt>À préciser</dt><dd>' + esc(c.aPreciser) + '</dd>');
+    if (c.pieceAttendue) d.push('<dt>Pièce attendue</dt><dd>' + esc(c.pieceAttendue) + '</dd>');
+    if (c.suites && c.suites.length) {
+      d.push('<dt>Suites possibles</dt><dd><ul>' + c.suites.map((s) =>
+        '<li><b>' + esc(s.si) + '</b> → ' + esc(s.alors) + '</li>').join('') + '</ul></dd>');
+    }
+    $('detList').innerHTML = d.join('') || '<dd style="color:var(--faint)">Aucun détail fourni.</dd>';
+  }
 
-      ws.onopen = () => {
-        clearTimeout(failOpen);
-        if (settled) return;
-        settled = true;
-        dg.retry = 0;
-        startRecorder();
-        resolve();
-      };
+  function lockPrompter() { S.locked = true; $('pLock').hidden = false; }
 
-      ws.onmessage = (ev) => {
-        let m = null;
-        try { m = JSON.parse(ev.data); } catch (e) { return; }
-        if (m.type === 'UtteranceEnd') { requestAnalyze('utterance'); return; }
-        if (m.type !== 'Results' || !m.channel || !m.channel.alternatives) return;
-        const alt = m.channel.alternatives[0];
-        if (!alt || !alt.transcript) return;
-        const words = alt.words || [];
-        const sp = noteSpeaker(words.length ? words[0].speaker : null);
-        if (m.is_final) { setInterim('', sp); addSegment(alt.transcript, sp); }
-        else setInterim(alt.transcript, sp);
-      };
+  // Installe une intervention. Jamais pendant la lecture : elle attend.
+  function setCurrent(iv, force) {
+    if (!iv) return;
+    if (S.current && S.locked && !force) { S.pending = iv; $('pPending').hidden = false; return; }
+    if (S.current) {
+      S.history.push(S.current);
+      const q = S.questions.find((x) => x.id === S.current.qid);
+      // Affichée mais jamais prononcée : elle ne deviendra pas un échange réel.
+      if (q && q.statut === 'affichée') q.statut = 'reportée';
+    }
+    const qid = nextQid();
+    S.questions.push({ id:qid, texte:iv.texte, categorie:iv.categorie, statut:'affichée',
+      objectif:iv.objectif || '', tAffichee: elapsedNow() });
+    S.current = Object.assign({}, iv, { qid: qid, at: Date.now(), outdated:false });
+    S.pending = null; S.locked = false; S.stale = false; S.variants = [];
+    $('variantBox').hidden = true;
+    $('promptText').classList.add('swap');
+    setTimeout(() => { renderPrompter(); $('promptText').classList.remove('swap'); }, 90);
+    renderQueue(); persist();
+  }
+  function promote() {
+    if (!S.pending) return;
+    const p = S.pending; S.pending = null;
+    S.locked = false;              // la lecture précédente est terminée
+    setCurrent(p, true);
+  }
 
-      ws.onerror = () => { /* onclose fera le travail */ };
+  $('btnPrev').addEventListener('click', () => {
+    const p = S.history.pop(); if (!p) return;
+    S.current = p; S.locked = false; S.stale = false; renderPrompter();
+  });
+  $('btnAuto').addEventListener('click', () => {
+    S.pausedAuto = !S.pausedAuto;
+    $('btnAuto').textContent = S.pausedAuto ? '▶ Reprendre auto' : '⏸ Pause auto';
+    $('btnAuto').classList.toggle('on', S.pausedAuto);
+    // Reprise explicite par l'advisor : ce qui attendait peut s'afficher.
+    if (!S.pausedAuto && S.pending) promote();
+  });
+  $('btnDeeper').addEventListener('click', () => requestSelect('approfondir', { intent:'approfondir' }));
+  $('btnForward').addEventListener('click', () => requestSelect('avancer', { intent:'avancer' }));
+  $('btnVariants').addEventListener('click', () => {
+    if (!S.variants.length) { requestSelect('variantes', { intent:'variantes' }); return; }
+    $('variantBox').hidden = !$('variantBox').hidden;
+  });
 
-      ws.onclose = (ev) => {
-        clearTimeout(failOpen);
-        stopRecorder();
-        if (!settled) {
-          settled = true;
-          // Échec à l'ouverture : on tente l'autre convention d'authentification.
-          if (dg.proto + 1 < DG_PROTOCOLS.length) {
-            dg.proto++;
-            openDeepgramSocket().then(resolve, reject);
-          } else {
-            reject(new Error('Deepgram a refusé la connexion (code ' + ev.code + ').'));
-          }
-          return;
+  /* ------------------------------ file ---------------------------------- */
+  function renderQueue() {
+    const list = S.questions.filter((q) => q.statut !== 'caduque').slice(-24).reverse();
+    $('nQueue').textContent = S.questions.filter((q) => ['préparée','affichée'].indexOf(q.statut) !== -1).length;
+    $('queueList').innerHTML = list.map((q) =>
+      '<li class="' + esc(q.statut) + '"><span class="st">' + esc(q.statut) + '</span>' + esc(q.texte) + '</li>').join('')
+      || '<li style="color:var(--faint)">Aucune question préparée.</li>';
+  }
+
+  /* ══════════════ SÉLECTEUR (haiku) ══════════════ */
+  const EXPLICIT = ['approfondir','avancer','variantes','sortie-intro','manuel',
+                    'categorie-suivante','proposer-synthese'];
+  const isExplicit = (r) => EXPLICIT.indexOf(r) !== -1 || /^categorie-/.test(r || '');
+
+  function requestSelect(reason, extra) {
+    if (!S.started) return;
+    // En pause auto on continue d'appeler : la préparation ne s'arrête jamais,
+    // c'est seulement l'affichage qui se fige (réf. 8.9).
+    const wait = SELECT_MIN_GAP - (Date.now() - S.lastSelectAt);
+    if (wait > 0 && reason !== 'sortie-intro') {
+      clearTimeout(S.gapTimer);
+      S.gapTimer = setTimeout(() => requestSelect(reason, extra), wait + 20);
+      return;
+    }
+    runSelect(reason, extra);
+  }
+
+  async function runSelect(reason, extra) {
+    if (S.selectInflight) { try { S.selectInflight.abort(); } catch(e){} }
+    const ctrl = new AbortController(); S.selectInflight = ctrl;
+    S.lastSelectAt = Date.now();
+    const t0 = Date.now(); let got = false;
+    try {
+      const d = await api(Object.assign({
+        mode:'select',
+        transcript: recentText(),
+        resume: S.resume,
+        faits: S.facts,
+        questions: S.questions.filter((q) => ['affichée','préparée','partielle'].indexOf(q.statut) !== -1)
+          .map((q) => ({ id:q.id, texte:q.texte, categorie:q.categorie, statut:q.statut })),
+        categorie: S.categorie,
+        temps: { elapsed: Math.round(elapsedNow()/60000), total: S.cfg.duree, phase: currentPhaseLabel() },
+        introState: S.introState,
+        clientQuestion: S.ask || ''
+      }, extra || {}), (t, first) => { if (first && !got) { got = true; recordLatency(Date.now() - t0); } }, ctrl.signal);
+      if (S.selectInflight === ctrl) applySelect(d || {}, reason);
+    } catch (e) {
+      if (e && e.name !== 'AbortError') { /* silencieux pendant l'appel */ }
+    } finally { if (S.selectInflight === ctrl) S.selectInflight = null; }
+  }
+
+  function applySelect(d, reason) {
+    // 1. État de l'introduction — le backend fait foi.
+    if (d.intro) {
+      S.introState = { advisorPresented: !!d.intro.advisorPresented, clientDescribed: !!d.intro.clientDescribed };
+      if (S.phase === 'intro') renderIntro();
+    }
+    // 2. Contexte capté (rempli pendant l'intro).
+    if (d.contexte) { Object.assign(S.contexte, d.contexte); renderContexte(); }
+
+    // 3. Faits nouveaux. Une correction remplace la valeur précédente.
+    if (Array.isArray(d.facts) && d.facts.length) {
+      d.facts.forEach((f) => {
+        const dup = S.facts.find((x) => x.valeur === f.valeur && x.categorie === f.categorie);
+        if (dup) return;
+        if (f.certitude === 'corrigé') {
+          const prev = S.facts.filter((x) => x.categorie === f.categorie && x.certitude !== 'corrigé');
+          if (prev.length) { const p = prev[prev.length - 1]; f.remplace = p.valeur; p.remplacePar = f.valeur; }
         }
-        if (dg.closing || !state.listening) return;
-        // Reconnexion transparente, avec un jeton frais.
-        dg.retry++;
-        const delay = Math.min(500 * dg.retry, 5000);
-        setTimeout(async () => {
-          if (!state.listening || dg.closing) return;
-          try { dg.token = await getDeepgramToken(); await openDeepgramSocket(); }
-          catch (e) {
-            if (dg.retry > 4) { showMsg('micMsg', 'Transcription interrompue — bascule sur le moteur du navigateur.', 6000); fallbackToWebSpeech(); }
-          }
-        }, delay);
-      };
-    });
-  }
-
-  function startRecorder() {
-    if (!dg.stream || dg.rec) return;
-    let mime = '';
-    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
-    for (const c of candidates) {
-      if (window.MediaRecorder && MediaRecorder.isTypeSupported(c)) { mime = c; break; }
+        S.facts.push(Object.assign({ t: elapsedNow() }, f));
+      });
+      persist();
     }
-    try { dg.rec = new MediaRecorder(dg.stream, mime ? { mimeType: mime } : undefined); }
-    catch (e) { dg.rec = null; return; }
-    dg.rec.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0 && dg.ws && dg.ws.readyState === 1) dg.ws.send(e.data);
-    };
-    dg.rec.start(250);   // tranches de 250 ms
-  }
-  function stopRecorder() {
-    if (dg.rec) { try { dg.rec.stop(); } catch (e) { /* ignoré */ } dg.rec = null; }
-  }
-  function stopDeepgram() {
-    dg.closing = true;
-    stopRecorder();
-    if (dg.ws) { try { dg.ws.close(); } catch (e) { /* ignoré */ } dg.ws = null; }
-    if (dg.stream) { dg.stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) {} }); dg.stream = null; }
-    dg.closing = false;
-  }
 
-  /* -------------------- Repli : Web Speech API --------------------------- */
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const ws = { rec: null, manualStop: false, restartTimer: null, errStreak: 0 };
+    // 4. Statuts. Une question n'est « posée » que si l'advisor l'a prononcée.
+    if (d.posedId) { const q = S.questions.find((x) => x.id === d.posedId); if (q) q.statut = 'posée'; }
+    (d.resolvedIds || []).forEach((id) => {
+      const q = S.questions.find((x) => x.id === id);
+      // Réponse spontanée : résolue sans avoir été posée.
+      if (q) { q.statut = 'résolue'; q.spontanee = (q.statut !== 'posée'); }
+    });
+    (d.partialIds || []).forEach((id) => { const q = S.questions.find((x) => x.id === id); if (q && q.statut !== 'résolue') q.statut = 'partielle'; });
+    renderQueue();
 
-  function buildWebSpeech() {
-    const rec = new SR();
-    rec.lang = 'fr-FR'; rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
-    rec.onresult = (event) => {
-      ws.errStreak = 0;
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const r = event.results[i];
-        const txt = r[0] ? r[0].transcript : '';
-        // Sans diarisation, tout est attribué au client (le plus utile).
-        if (r.isFinal) addSegment(txt, null); else interim += txt;
-      }
-      setInterim(interim.trim(), null);
-    };
-    rec.onerror = (event) => {
-      const e = event.error;
-      if (e === 'not-allowed' || e === 'service-not-allowed') {
-        stopListening();
-        showMsg('micMsg', '<b>Accès au micro refusé.</b> Autorise le microphone, puis réappuie sur Écouter.<br>iOS : Réglages → Safari → Microphone. Android : ⓘ dans la barre d’adresse → Autorisations.');
+    // 5. Correction rendant l'intervention affichée inexacte.
+    if (d.staleCurrent && S.current) { S.stale = true; $('pStale').hidden = false; }
+
+    // 6. Question du client → bandeau.
+    if (d.clientQuestion !== undefined) { /* réservé */ }
+
+    // 7. Phase et intervention.
+    if (S.phase === 'intro') {
+      // On conserve la proposition sans l'afficher : préparation en arrière-plan.
+      if (d.intervention) S.pending = d.intervention;
+      maybeLeaveIntro(reason);
+      return;
+    }
+    if (d.intervention) {
+      const forced = isExplicit(reason);
+      if (S.pausedAuto && !forced) {
+        // Prêt à afficher, mais rien ne défile tant que l'advisor n'a pas repris.
+        S.pending = d.intervention; $('pPending').hidden = false;
         return;
       }
-      if (e === 'audio-capture') { stopListening(); showMsg('micMsg', '<b>Micro introuvable.</b>'); return; }
-      if (e === 'no-speech' || e === 'aborted') return;
-      ws.errStreak++;
-    };
-    rec.onend = () => {
-      if (!state.listening || ws.manualStop) return;
-      const delay = ws.errStreak > 3 ? Math.min(400 * ws.errStreak, 5000) : 250;
-      clearTimeout(ws.restartTimer);
-      ws.restartTimer = setTimeout(() => {
-        if (!state.listening || ws.manualStop) return;
-        try { rec.start(); } catch (e) { /* déjà active */ }
-      }, delay);
-    };
-    return rec;
+      if (reason === 'variantes') {
+        S.variants = [d.intervention];
+        $('variantBox').innerHTML = S.variants.map((v) =>
+          '<div style="padding:8px 0;border-top:1px solid var(--line)">' + esc(v.texte) + '</div>').join('');
+        $('variantBox').hidden = false;
+        return;
+      }
+      setCurrent(d.intervention, forced);
+    }
   }
 
-  function fallbackToWebSpeech() {
-    if (!SR) {
-      showMsg('fatalMsg', '<b>Transcription indisponible.</b> Deepgram n’est pas joignable et ce navigateur ne gère pas la reconnaissance vocale. Ouvre la page dans Chrome (Android) ou Safari (iOS).');
-      stopListening();
-      return false;
-    }
-    stopDeepgram();
-    state.engine = 'webspeech';
-    setEngineChip();
-    ws.manualStop = false;
-    if (!ws.rec) ws.rec = buildWebSpeech();
-    try { ws.rec.start(); } catch (e) { /* déjà active */ }
+  function recordLatency(ms) {
+    S.latencies.push(ms); if (S.latencies.length > 5) S.latencies.shift();
+    const avg = S.latencies.reduce((a,b) => a+b, 0) / S.latencies.length;
+    $('latLbl').textContent = '⚡ ' + (avg/1000).toFixed(1) + ' s';
+  }
+
+  /* ══════════════ PRÉPARATEUR (sonnet, arrière-plan) ══════════════ */
+  async function runPrepare() {
+    if (!S.started || S.prepInflight || S.segments.length < 3) return;
+    const ctrl = new AbortController(); S.prepInflight = ctrl;
+    try {
+      const d = await api({
+        mode:'prepare', transcript: fullText(), resume: S.resume, faits: S.facts,
+        questions: S.questions.map((q) => ({ id:q.id, texte:q.texte, statut:q.statut })),
+        categorie: S.categorie, reserve: S.reserve
+      }, null, ctrl.signal);
+      if (d) {
+        if (d.resume) S.resume = d.resume;
+        if (Array.isArray(d.contradictions)) S.contradictions = d.contradictions;
+        if (Array.isArray(d.pieces)) S.pieces = d.pieces;
+        if (Array.isArray(d.queue)) {
+          // On n'ajoute que ce qui n'est pas déjà connu.
+          const known = S.questions.map((q) => norm(q.texte));
+          d.queue.forEach((q) => {
+            if (known.indexOf(norm(q.texte)) !== -1) return;
+            known.push(norm(q.texte));
+            S.questions.push({ id: nextQid(), texte:q.texte, categorie:q.categorie, statut:'préparée',
+              objectif:q.objectif || '', pieceAttendue:q.pieceAttendue || '', suites:q.suites || [] });
+          });
+          renderQueue();
+        }
+        persist();
+      }
+    } catch (e) { /* le préparateur ne bloque jamais l'appel */ }
+    finally { if (S.prepInflight === ctrl) S.prepInflight = null; }
+  }
+  const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+
+  /* ══════════════ AUDIO : Deepgram + repli navigateur ══════════════ */
+  const DG_BASE = 'wss://api.deepgram.com/v1/listen?' + [
+    'model=nova-3','language=fr','interim_results=true','smart_format=true',
+    'diarize=true','endpointing=300','utterance_end_ms=1000'].join('&');
+  const DG_PROTO = ['bearer','token'];
+  const dg = { ws:null, rec:null, stream:null, token:null, proto:0, closing:false, retry:0, ac:null, an:null, raf:0 };
+
+  async function listMics() {
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const mics = devs.filter((d) => d.kind === 'audioinput');
+      $('micSelect').innerHTML = '<option value="">Micro par défaut</option>' +
+        mics.map((m,i) => '<option value="' + esc(m.deviceId) + '">' + esc(m.label || ('Micro ' + (i+1))) + '</option>').join('');
+      if (S.cfg.mic) $('micSelect').value = S.cfg.mic;
+    } catch (e) { /* labels indisponibles avant autorisation */ }
+  }
+
+  async function openMic() {
+    const audio = { echoCancellation:false, noiseSuppression:false, autoGainControl:true };
+    if (S.cfg.mic) audio.deviceId = { exact: S.cfg.mic };
+    return navigator.mediaDevices.getUserMedia({ audio });
+  }
+
+  async function dgToken() {
+    if (!S.password) await askPassword('Saisis le mot de passe de l’application.');
+    const r = await fetch('/api/deepgram-token', { method:'POST',
+      headers:{ 'Content-Type':'application/json', 'x-app-password': S.password } });
+    if (r.status === 401) { S.password = ''; lsDel(LS.pw); throw new Error('Mot de passe refusé.'); }
+    const d = await r.json().catch(() => null);
+    if (!r.ok || !d || !d.access_token) throw new Error((d && d.error) || 'Jeton Deepgram indisponible.');
+    return d.access_token;
+  }
+
+  function openSocket(onMsg) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const scheme = DG_PROTO[dg.proto] || 'bearer';
+      let ws;
+      try { ws = new WebSocket(DG_BASE, [scheme, dg.token]); } catch (e) { reject(e); return; }
+      dg.ws = ws;
+      const to = setTimeout(() => { if (!settled) { settled = true; try { ws.close(); } catch(e){} reject(new Error('Deepgram : délai dépassé.')); } }, 8000);
+      ws.onopen = () => { clearTimeout(to); if (settled) return; settled = true; dg.retry = 0; startRec(); resolve(); };
+      ws.onmessage = (ev) => { let m = null; try { m = JSON.parse(ev.data); } catch(e){ return; } onMsg(m); };
+      ws.onclose = (ev) => {
+        clearTimeout(to); stopRec();
+        if (!settled) {
+          settled = true;
+          if (dg.proto + 1 < DG_PROTO.length) { dg.proto++; openSocket(onMsg).then(resolve, reject); }
+          else reject(new Error('Deepgram a refusé la connexion (code ' + ev.code + ').'));
+          return;
+        }
+        if (dg.closing || !S.listening) return;
+        dg.retry++;
+        setTimeout(async () => {
+          if (!S.listening || dg.closing) return;
+          try { dg.token = await dgToken(); await openSocket(onMsg); }
+          catch (e) { if (dg.retry > 3) { warn('Transcription interrompue — bascule sur le moteur du navigateur.'); useWebSpeech(); } }
+        }, Math.min(500 * dg.retry, 5000));
+      };
+    });
+  }
+
+  function startRec() {
+    if (!dg.stream || dg.rec) return;
+    let mime = '';
+    ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'].forEach((c) => {
+      if (!mime && window.MediaRecorder && MediaRecorder.isTypeSupported(c)) mime = c; });
+    try { dg.rec = new MediaRecorder(dg.stream, mime ? { mimeType: mime } : undefined); }
+    catch (e) { dg.rec = null; return; }
+    dg.rec.ondataavailable = (e) => { if (e.data && e.data.size && dg.ws && dg.ws.readyState === 1) dg.ws.send(e.data); };
+    dg.rec.start(250);
+  }
+  function stopRec() { if (dg.rec) { try { dg.rec.stop(); } catch(e){} dg.rec = null; } }
+  function stopAudio() {
+    dg.closing = true; stopRec();
+    if (dg.ws) { try { dg.ws.close(); } catch(e){} dg.ws = null; }
+    if (dg.stream) { dg.stream.getTracks().forEach((t) => { try { t.stop(); } catch(e){} }); dg.stream = null; }
+    if (dg.raf) { cancelAnimationFrame(dg.raf); dg.raf = 0; }
+    if (dg.ac) { try { dg.ac.close(); } catch(e){} dg.ac = null; }
+    dg.closing = false;
+    if (wsr.rec) { wsr.manual = true; try { wsr.rec.stop(); } catch(e){} }
+  }
+
+  function meterFrom(stream, cb) {
+    try {
+      dg.ac = new (window.AudioContext || window.webkitAudioContext)();
+      const src = dg.ac.createMediaStreamSource(stream);
+      dg.an = dg.ac.createAnalyser(); dg.an.fftSize = 512;
+      src.connect(dg.an);
+      const buf = new Uint8Array(dg.an.frequencyBinCount);
+      const tick = () => {
+        dg.an.getByteTimeDomainData(buf);
+        let peak = 0;
+        for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i] - 128));
+        cb(Math.min(100, Math.round((peak / 128) * 160)));
+        dg.raf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) { /* sans niveau */ }
+  }
+
+  /* repli Web Speech */
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const wsr = { rec:null, manual:false, timer:null };
+  function useWebSpeech() {
+    if (!SR) { fatal('Deepgram est injoignable et ce navigateur ne gère pas la reconnaissance vocale. Utilisez Chrome.'); return false; }
+    stopAudio(); S.engine = 'navigateur'; wsr.manual = false;
+    const rec = new SR(); rec.lang = 'fr-FR'; rec.continuous = true; rec.interimResults = true;
+    rec.onresult = (e) => {
+      let it = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) addSegment(r[0].transcript, null); else it += r[0].transcript;
+      }
+      setInterim(it.trim(), null);
+    };
+    rec.onend = () => { if (S.listening && !wsr.manual) { try { rec.start(); } catch(e){} } };
+    wsr.rec = rec;
+    try { rec.start(); } catch(e){}
+    // Sans diarisation : on ne peut pas distinguer les tours de parole.
+    warn('Moteur du navigateur : les locuteurs ne sont pas séparés. Les segments sont marqués « Incertain ».');
     return true;
   }
 
-  function setEngineChip() {
-    const chip = $('engineChip');
-    if (!state.engine) { chip.hidden = true; return; }
-    chip.hidden = false;
-    chip.textContent = state.engine === 'deepgram' ? 'Deepgram nova-3' : 'navigateur';
-    chip.classList.toggle('live', state.engine === 'deepgram');
-  }
+  function warn(t) { $('callWarn').textContent = t; }
+  function fatal(t) { $('callWarn').textContent = t; }
 
-  /* ===================== QUESTIONS : 3 NIVEAUX, DIFF ===================== */
-  const normKey = (s) => String(s).toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-
-  function isDup(text, keys) {
-    const k = normKey(text);
-    if (k.length < 4) return true;
-    for (let i = 0; i < keys.length; i++) {
-      const s = keys[i];
-      if (!s) continue;
-      if (s === k || s.indexOf(k) !== -1 || k.indexOf(s) !== -1) return true;
-    }
-    return false;
-  }
-
-  const allActive = () => (state.now ? [state.now] : []).concat(state.next, state.later);
-  const knownKeys = () => allActive().map((q) => normKey(q.text))
-    .concat(state.answers.map((a) => normKey(a.text)))
-    .concat(state.retired.map(normKey));
-
-  // Réutilise l'id d'une question déjà connue : les cartes inchangées
-  // ne bougent pas à l'écran.
-  function reuseOrCreate(item, pool) {
-    const text = String(item && (item.question || item.text) || '').trim();
-    if (text.length < 4) return null;
-    const k = normKey(text);
-    for (let i = 0; i < pool.length; i++) {
-      const p = pool[i];
-      const pk = normKey(p.text);
-      if (pk === k || pk.indexOf(k) !== -1 || k.indexOf(pk) !== -1) {
-        if (item && item.why) p.why = String(item.why).trim();
-        return p;
-      }
-    }
-    return { id: nextId(), text: text, why: String((item && item.why) || '').trim(), at: Date.now() };
-  }
-
-  function cardNode(q, tier) {
-    const li = document.createElement('li');
-    li.dataset.id = q.id;
-    li.innerHTML = '<div class="q">' + esc(q.text) + '</div>' +
-      (tier === 'now' ? '<div class="why">' + (q.why ? '💡 <span>' + esc(q.why) + '</span>' : '') + '</div>' : '') +
-      '<div class="ans"></div>';
-    return li;
-  }
-
-  function leaveCard(li, cls) {
-    if (!li || li.dataset.leaving) return;
-    li.dataset.leaving = '1';
-    if (cls) li.classList.add(cls);
-    li.style.height = li.offsetHeight + 'px';
-    void li.offsetHeight;
-    li.classList.add('leaving');
-    setTimeout(() => li.remove(), ANIM_MS + 40);
-  }
-
-  // Rendu par diff : on ne touche que ce qui change.
-  function renderTier(listEl, items, tier) {
-    const present = {};
-    Array.prototype.forEach.call(listEl.children, (el) => {
-      // Une carte en cours de sortie, ou qui affiche sa réponse pendant ses
-      // 2 secondes de lecture, n'est pas gérée par le diff : elle se retire seule.
-      if (!el.dataset.leaving && !el.dataset.holding) present[el.dataset.id] = el;
-    });
-    const wanted = {};
-    items.forEach((q) => { wanted[q.id] = true; });
-
-    Object.keys(present).forEach((id) => { if (!wanted[id]) leaveCard(present[id]); });
-
-    let cursor = null;
-    items.forEach((q) => {
-      let el = present[q.id];
-      if (!el) {
-        el = cardNode(q, tier);
-        el.classList.add('entering');
-        listEl.appendChild(el);
-        requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('entering')));
-      } else {
-        const qEl = el.querySelector('.q');
-        if (qEl && qEl.textContent !== q.text) qEl.textContent = q.text;
-        if (tier === 'now') {
-          const w = el.querySelector('.why');
-          const want = q.why ? '💡 ' + q.why : '';
-          if (w && w.textContent !== want) w.innerHTML = q.why ? '💡 <span>' + esc(q.why) + '</span>' : '';
-        }
-      }
-      // Ordre : on place la carte après la précédente si besoin.
-      const after = cursor ? cursor.nextSibling : listEl.firstChild;
-      if (after !== el) listEl.insertBefore(el, after);
-      cursor = el;
-    });
-  }
-
-  function renderQuestions() {
-    renderTier($('nowList'), state.now ? [state.now] : [], 'now');
-    renderTier($('nextList'), state.next, 'next');
-    renderTier($('laterList'), state.later, 'later');
-    $('nowPlaceholder').hidden = !!state.now;
-    $('nextLabel').hidden = state.next.length === 0;
-    $('laterLabel').hidden = state.later.length === 0;
-  }
-
-  function renderAnswers() {
-    const n = state.answers.length;
-    $('ansToggle').hidden = n === 0;
-    $('ansLabel').textContent = 'Réponses obtenues (' + n + ')';
-    $('ansList').innerHTML = state.answers.map((a) =>
-      '<li><div class="aq">' + esc(a.text) + '</div><div class="aa">' + esc(a.answer) + '</div>' +
-      (a.why ? '<div class="aw">💡 ' + esc(a.why) + '</div>' : '') + '</li>').join('');
-    if (n === 0) { $('ansList').hidden = true; $('ansToggle').setAttribute('aria-expanded', 'false'); }
-    else $('ansList').hidden = $('ansToggle').getAttribute('aria-expanded') !== 'true';
-  }
-
-  function fold(btnId, listId) {
-    $(btnId).addEventListener('click', () => {
-      const open = $(btnId).getAttribute('aria-expanded') === 'true';
-      $(btnId).setAttribute('aria-expanded', open ? 'false' : 'true');
-      $(listId).hidden = open;
-    });
-  }
-  fold('ansToggle', 'ansList');
-  fold('trToggle', 'transcript');
-
-  function removeById(id) {
-    if (state.now && state.now.id === id) { const q = state.now; state.now = null; return q; }
-    let i = state.next.findIndex((q) => q.id === id);
-    if (i !== -1) return state.next.splice(i, 1)[0];
-    i = state.later.findIndex((q) => q.id === id);
-    if (i !== -1) return state.later.splice(i, 1)[0];
-    return null;
-  }
-
-  function applyLive(data) {
-    const answered = Array.isArray(data.answered) ? data.answered : [];
-    const obsolete = Array.isArray(data.obsolete) ? data.obsolete : [];
-    let touched = false;
-
-    // 1. Répondues : coche verte + réponse, puis retrait.
-    answered.forEach((a) => {
-      const q = removeById(a.id);
-      if (!q) return;
-      state.answers.push({ id: q.id, text: q.text, why: q.why || '', answer: a.answer, at: Date.now() });
-      const li = document.querySelector('li[data-id="' + a.id + '"]');
-      if (li) {
-        // « holding » met la carte hors du diff le temps qu'on lise la réponse.
-        li.dataset.holding = '1';
-        li.classList.add('answered');
-        const ans = li.querySelector('.ans');
-        if (ans) ans.textContent = a.answer;
-        setTimeout(() => leaveCard(li), ANSWER_HOLD_MS);
-      }
-      touched = true;
-    });
-
-    // 2. Obsolètes : fondu discret.
-    obsolete.forEach((id) => {
-      const q = removeById(id);
-      if (!q) return;
-      state.retired.push(q.text);
-      const li = document.querySelector('li[data-id="' + id + '"]');
-      if (li) { li.dataset.holding = '1'; li.classList.add('obsolete'); setTimeout(() => leaveCard(li), ANIM_MS); }
-      touched = true;
-    });
-
-    // 3. Bandeau « il vous demande ».
-    const ask = String(data.ask || '').trim();
-    if (ask && ask !== state.ask) {
-      state.ask = ask;
-      $('askText').textContent = ask;
-      $('askBanner').hidden = false;
-      touched = true;
-    } else if (!ask && state.ask) {
-      state.ask = '';
-      $('askBanner').hidden = true;
-    }
-
-    const pool = allActive();
-
-    // 4. MAINTENANT — stabilité : on ne remplace pas avant 4 s, sauf si l'IA
-    //    juge la nouvelle nettement meilleure ou si l'ancienne a été répondue.
-    if (data.now) {
-      const incoming = reuseOrCreate(data.now, pool);
-      if (incoming) {
-        const cur = state.now;
-        const locked = cur && !data.replaceNow && (Date.now() - cur.at) < NOW_MIN_MS;
-        if (!cur) { state.now = incoming; incoming.at = Date.now(); touched = true; buzz(); }
-        else if (cur.id === incoming.id) { cur.why = incoming.why || cur.why; }
-        else if (locked) {
-          // On garde l'affichage, la relance proposée bascule en « Ensuite ».
-          if (!isDup(incoming.text, knownKeys())) state.next.unshift(incoming);
-        } else { state.now = incoming; incoming.at = Date.now(); touched = true; buzz(); }
-      }
-    }
-
-    // 5. ENSUITE / À ABORDER — fusion en conservant les ids.
-    const merge = (incomingList, cap, current) => {
-      const out = [];
-      const keys = [];
-      if (state.now) keys.push(normKey(state.now.text));
-      (Array.isArray(incomingList) ? incomingList : []).forEach((item) => {
-        if (out.length >= cap) return;
-        const q = reuseOrCreate(item, current.concat(pool));
-        if (!q) return;
-        const k = normKey(q.text);
-        if (keys.indexOf(k) !== -1) return;
-        keys.push(k);
-        out.push(q);
-      });
-      // On complète avec les questions déjà présentes non reprises.
-      current.forEach((q) => {
-        if (out.length >= cap) return;
-        const k = normKey(q.text);
-        if (keys.indexOf(k) !== -1) return;
-        keys.push(k); out.push(q);
-      });
-      return out;
-    };
-
-    if (Array.isArray(data.next) && data.next.length) state.next = merge(data.next, N_NEXT, state.next);
-    else state.next = state.next.slice(0, N_NEXT);
-    if (Array.isArray(data.later) && data.later.length) state.later = merge(data.later, N_LATER, state.later);
-    else state.later = state.later.slice(0, N_LATER);
-
-    renderQuestions();
-    if (answered.length) renderAnswers();
-    if (touched || answered.length || obsolete.length) persist();
-  }
-
-  /* ======================== CADENCE « LE PLUS RÉCENT GAGNE » ============= */
-  function requestAnalyze(reason) {
-    if (!topicOk()) return;
-    const wait = MIN_GAP_MS - (Date.now() - state.lastStart);
-    if (wait > 0) {
-      clearTimeout(state.gapTimer);
-      state.gapTimer = setTimeout(() => requestAnalyze(reason), wait + 15);
+  /* ══════════════ TEST AUDIO ══════════════ */
+  let testState = null;
+  async function startAudioTest() {
+    show('audio'); $('audioErr').textContent = ''; $('verdictBox').innerHTML = '';
+    $('speakerCard').hidden = true; $('btnStartCall').disabled = true;
+    $('testTranscript').textContent = 'En attente de parole…';
+    testState = { speakers:{}, words:0, left:20, text:'' };
+    try {
+      dg.stream = await openMic();
+      await listMics();
+      const track = dg.stream.getAudioTracks()[0];
+      $('micName').textContent = track ? '— ' + (track.label || 'micro') : '';
+      meterFrom(dg.stream, (v) => { $('lvlBar').style.width = v + '%'; });
+      dg.token = await dgToken();
+      S.engine = 'Deepgram nova-3';
+      await openSocket(onTestMsg);
+    } catch (e) {
+      $('audioErr').textContent = 'Test impossible : ' + (e && e.message ? e.message : 'erreur') +
+        ' — vous pouvez démarrer sans test, le moteur du navigateur servira de repli.';
+      $('btnStartCall').disabled = false;
       return;
     }
-    clearTimeout(state.gapTimer);
-    runLive(reason);
-  }
-
-  async function runLive() {
-    // Le plus récent gagne : l'appel en cours est abandonné.
-    if (state.inflight) { try { state.inflight.abort(); } catch (e) { /* ignoré */ } }
-    const controller = new AbortController();
-    state.inflight = controller;
-    state.lastStart = Date.now();
-    const t0 = Date.now();
-    let gotFirst = false;
-
-    const onDelta = (t, isFirst) => {
-      if (isFirst && !gotFirst) { gotFirst = true; recordLatency(Date.now() - t0); }
-    };
-
-    try {
-      const data = await callApi({
-        mode: 'live',
-        transcript: liveText(),
-        digest: state.digest,
-        questions: allActive().map((q) => ({ id: q.id, text: q.text })),
-        answered: state.answers.map((a) => a.text).concat(state.retired)
-      }, onDelta, controller.signal);
-      if (state.inflight === controller) applyLive(data || {});
-    } catch (e) {
-      // Une annulation est normale ; une erreur ne doit rien casser à l'écran.
-      if (!e || e.name !== 'AbortError') { /* silencieux en réunion */ }
-    } finally {
-      if (state.inflight === controller) state.inflight = null;
-    }
-  }
-
-  /* --------------------- Résumé roulant (mémoire longue) ----------------- */
-  async function runDigest() {
-    if (!topicOk() || state.segments.length < 6) return;
-    try {
-      const data = await callApi({
-        mode: 'digest',
-        transcript: fullText(),
-        previous: state.digest
-      });
-      if (data && data.text) { state.digest = data.text.trim(); state.digestAt = Date.now(); persist(); }
-    } catch (e) { /* le digest est un bonus : jamais bloquant */ }
-  }
-
-  /* ------------------------------ Préchauffage --------------------------- */
-  function ping() {
-    fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-app-password': state.password || '' },
-      body: JSON.stringify({ mode: 'ping' })
-    }).catch(() => { /* sans conséquence */ });
-  }
-
-  function showMsg(id, html, hideMs) {
-    const el = $(id);
-    el.innerHTML = html || '';
-    if (hideMs && html) setTimeout(() => { if (el.innerHTML === html) el.innerHTML = ''; }, hideMs);
-  }
-
-  /* ============================== CONTRÔLES ============================== */
-  const topicValue = () => $('topic').value.trim();
-  const topicOk = () => topicValue().length >= MIN_TOPIC_CHARS;
-
-  function updateTopicUi() {
-    const ok = topicOk();
-    $('listenBtn').disabled = !ok;
-    $('topicHint').classList.toggle('ready', ok);
-    $('topicHint').textContent = ok
-      ? 'Sujet défini — les questions serviront cet objectif.'
-      : 'Décris le sujet pour que les questions soient pertinentes';
-  }
-  function setTopicCollapsed(c) {
-    state.topicCollapsed = c;
-    $('topicWrap').hidden = c;
-    $('topicBar').hidden = !c;
-    if (c) $('topicBar').querySelector('.txt').textContent = topicValue();
-  }
-  $('topicBar').addEventListener('click', () => { setTopicCollapsed(false); $('topic').focus(); });
-  $('topic').addEventListener('input', updateTopicUi);
-  $('topic').addEventListener('blur', () => {
-    updateTopicUi();
-    if (!topicOk()) return;
-    lsSet(LS_TOPIC, topicValue());
-    if (state.started) setTopicCollapsed(true);
-    else prewarm();
-  });
-
-  let prewarmedFor = '';
-  function prewarm() {
-    if (!topicOk() || state.now || state.inflight || state.segments.length) return;
-    const k = normKey(topicValue());
-    if (k === prewarmedFor) return;
-    prewarmedFor = k;
-    requestAnalyze('prewarm');
-  }
-
-  async function startListening() {
-    if (!topicOk()) { $('topic').focus(); return; }
-    if (!state.password) await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
-    showMsg('micMsg', ''); showMsg('resumeMsg', ''); showMsg('fatalMsg', '');
-
-    state.listening = true;
-    state.started = true;
-    state.ended = false;
-    state.lastResume = Date.now();
-    startChrono();
-    requestWakeLock();
-    $('endBtn').disabled = false;
-    setTopicCollapsed(true);
-    updateUi();
-
-    // Deepgram d'abord ; repli transparent sur le moteur du navigateur.
-    try {
-      await startDeepgram();
-      state.engine = 'deepgram';
-      setEngineChip();
-    } catch (e) {
-      const why = e && e.message ? e.message : 'indisponible';
-      if (/Mot de passe/.test(why)) { stopListening(); return; }
-      showMsg('micMsg', 'Deepgram indisponible (' + esc(why) + ') — bascule sur le moteur du navigateur.', 7000);
-      if (!fallbackToWebSpeech()) { stopListening(); return; }
-    }
-
-    clearInterval(state.digestTimer);
-    state.digestTimer = setInterval(runDigest, DIGEST_EVERY_MS);
-    if (!state.now) requestAnalyze('start');
-    persist();
-  }
-
-  function stopListening() {
-    if (state.listening) { state.elapsedMs = elapsedNow(); state.listening = false; }
-    ws.manualStop = true;
-    clearTimeout(ws.restartTimer);
-    clearTimeout(state.interimTimer);
-    clearTimeout(state.gapTimer);
-    clearInterval(state.digestTimer);
-    if (ws.rec) { try { ws.rec.stop(); } catch (e) { /* ignoré */ } }
-    stopDeepgram();
-    setInterim('', null);
-    stopChrono();
-    releaseWakeLock();
-    updateUi();
-    persist();
-  }
-
-  $('listenBtn').addEventListener('click', () => {
-    if (state.listening) stopListening(); else startListening();
-  });
-
-  function updateUi() {
-    $('dot').className = 'dot' + (state.listening ? ' rec' : (state.started && !state.ended ? ' paused' : ''));
-    $('stateLabel').textContent = state.listening ? 'Écoute'
-      : (state.ended ? 'Terminée' : (state.started ? 'Pause' : 'Prêt'));
-    $('listenBtn').classList.toggle('on', state.listening);
-    $('listenBtn').textContent = state.listening ? '⏸ Pause' : (state.started ? '🎙 Reprendre' : '🎙 Écouter');
-  }
-
-  /* ---------------------------- Chrono / Wake ---------------------------- */
-  function startChrono() {
-    clearInterval(state.chronoTimer);
-    const tick = () => { $('chrono').textContent = mmss(elapsedNow()); };
-    tick();
-    state.chronoTimer = setInterval(tick, 1000);
-  }
-  function stopChrono() { clearInterval(state.chronoTimer); $('chrono').textContent = mmss(elapsedNow()); }
-
-  async function requestWakeLock() {
-    if (!('wakeLock' in navigator)) return;
-    try {
-      state.wakeLock = await navigator.wakeLock.request('screen');
-      state.wakeLock.addEventListener('release', () => { state.wakeLock = null; });
-    } catch (e) { state.wakeLock = null; }
-  }
-  function releaseWakeLock() {
-    if (state.wakeLock) { try { state.wakeLock.release(); } catch (e) { /* ignoré */ } state.wakeLock = null; }
-  }
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.listening) {
-      requestWakeLock();
-      if (state.engine === 'webspeech' && ws.rec && !ws.manualStop) {
-        try { ws.rec.start(); } catch (e) { /* déjà active */ }
-      }
-    }
-  });
-
-  /* ---------------------------- Persistance ------------------------------ */
-  let persistTimer = null;
-  const cancelPersist = () => { clearTimeout(persistTimer); persistTimer = null; };
-  function persist() {
-    if (persistTimer) return;
-    persistTimer = setTimeout(() => {
-      persistTimer = null;
-      lsSet(LS_MEETING, {
-        segments: state.segments.slice(-4000),
-        now: state.now, next: state.next, later: state.later,
-        answers: state.answers.slice(-200), retired: state.retired.slice(-200),
-        digest: state.digest, elapsedMs: elapsedNow(),
-        started: state.started, ended: state.ended,
-        summaryText: state.summaryText, topic: topicValue(), savedAt: Date.now()
-      });
+    clearInterval(testState.timer);
+    testState.timer = setInterval(() => {
+      testState.left--; $('testLeft').textContent = Math.max(0, testState.left);
+      if (testState.left <= 0) { clearInterval(testState.timer); finishTest(); }
     }, 1000);
   }
-  function loadMeeting(m) {
-    state.segments = Array.isArray(m.segments) ? m.segments : [];
-    state.now = m.now || null;
-    state.next = Array.isArray(m.next) ? m.next : [];
-    state.later = Array.isArray(m.later) ? m.later : [];
-    state.answers = Array.isArray(m.answers) ? m.answers : [];
-    state.retired = Array.isArray(m.retired) ? m.retired : [];
-    state.digest = m.digest || '';
-    state.elapsedMs = m.elapsedMs || 0;
-    state.started = !!m.started; state.ended = !!m.ended;
-    state.summaryText = m.summaryText || '';
-    qSeq = allActive().concat(state.answers)
-      .reduce((n, q) => Math.max(n, parseInt(String(q.id || '').replace(/\D/g, ''), 10) || 0), 0);
-    if (m.topic) $('topic').value = m.topic;
-    renderTranscript(); renderQuestions(); renderAnswers();
-    $('chrono').textContent = mmss(state.elapsedMs);
-    $('endBtn').disabled = !state.segments.length;
-    updateTopicUi(); updateUi();
+
+  function onTestMsg(m) {
+    if (m.type !== 'Results' || !m.channel) return;
+    const alt = m.channel.alternatives && m.channel.alternatives[0];
+    if (!alt || !alt.transcript) return;
+    const words = alt.words || [];
+    if (m.is_final) {
+      testState.text += (testState.text ? ' ' : '') + alt.transcript;
+      words.forEach((w) => {
+        const sp = w.speaker;
+        if (sp === undefined || sp === null) return;
+        testState.speakers[sp] = testState.speakers[sp] || { n:0, sample:'' };
+        testState.speakers[sp].n++;
+        if (testState.speakers[sp].sample.split(' ').length < 12) testState.speakers[sp].sample += ' ' + w.word;
+      });
+      testState.words += words.length;
+      $('testTranscript').textContent = testState.text;
+    } else {
+      $('testTranscript').textContent = testState.text + ' ' + alt.transcript;
+    }
   }
 
-  /* ------------------------------- Bilan --------------------------------- */
-  const HEADINGS = ['SUJET DE LA RÉUNION','SUJET DE LA REUNION','OBJECTIF ATTEINT ?','OBJECTIF ATTEINT',
-    'RÉSUMÉ','RESUME','POINTS CLÉS & INFORMATIONS OBTENUES','POINTS CLES & INFORMATIONS OBTENUES',
-    'DÉCISIONS PRISES','DECISIONS PRISES','ACTIONS À FAIRE','ACTIONS A FAIRE',
-    'QUESTIONS & RÉPONSES OBTENUES','QUESTIONS & REPONSES OBTENUES',
-    'QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS','QUESTIONS RESTEES SANS REPONSE / POINTS OUVERTS',
-    'QUESTIONS RESTÉES SANS RÉPONSE','OÙ ON EN EST','OU ON EN EST',
-    'PROCHAINE ÉTAPE RECOMMANDÉE','PROCHAINE ETAPE RECOMMANDEE'];
-  const isHeading = (line) => {
-    const t = line.trim().replace(/^#+\s*/, '').replace(/\*\*/g, '').replace(/\s*:$/, '');
-    return HEADINGS.indexOf(t.toUpperCase()) !== -1 ? t.toUpperCase() : null;
-  };
-  function renderSummary(text, streaming) {
-    const lines = text.split('\n'), out = [];
-    lines.forEach((line, i) => {
-      const h = isHeading(line);
-      if (h) { out.push('<h3>' + esc(h) + '</h3>'); return; }
-      if (!line.trim()) {
-        const prev = i > 0 ? lines[i - 1] : '';
-        let nx = '';
-        for (let j = i + 1; j < lines.length; j++) { if (lines[j].trim()) { nx = lines[j]; break; } }
-        if (isHeading(prev) || isHeading(nx)) return;
+  function finishTest() {
+    stopAudio();
+    const ids = Object.keys(testState.speakers);
+    const counts = ids.map((i) => testState.speakers[i].n);
+    let v = '', cls = '';
+    if (!ids.length || testState.words < 5) {
+      cls = 'bad'; v = '❌ Aucune voix exploitable détectée. Vérifiez le micro et recommencez.';
+    } else if (ids.length === 1) {
+      cls = 'bad'; v = '❌ Une seule voix détectée. Le client n’est probablement pas capté : rapprochez le téléphone du micro et montez le volume du haut-parleur.';
+    } else {
+      const min = Math.min.apply(null, counts), max = Math.max.apply(null, counts);
+      if (min < max * 0.25) { cls = 'warn'; v = '⚠️ La seconde voix est faible. Rapprochez le téléphone et montez le volume du haut-parleur.'; }
+      else { cls = 'ok'; v = '✅ Les deux voix sont intelligibles.'; }
+    }
+    $('verdictBox').innerHTML = '<div class="verdict ' + cls + '">' + v + '</div>';
+
+    if (ids.length) {
+      $('speakerCard').hidden = false;
+      $('speakerSamples').innerHTML = ids.map((i) =>
+        '<div style="margin-bottom:6px"><b>Speaker ' + esc(i) + '</b> — ' + testState.speakers[i].n +
+        ' mots<div style="color:var(--dim);font-style:italic">«' + esc(testState.speakers[i].sample) + ' »</div></div>').join('');
+      $('segSpeaker').innerHTML = ids.map((i) =>
+        '<button data-v="' + esc(i) + '" aria-pressed="false">Speaker ' + esc(i) + ' = moi</button>').join('') +
+        '<button data-v="none" aria-pressed="false">Je ne sais pas</button>';
+    }
+    $('btnStartCall').disabled = false;
+  }
+
+  $('segSpeaker').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-v]'); if (!b) return;
+    Array.prototype.forEach.call($('segSpeaker').querySelectorAll('button'), (x) => x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    S.speakerMe = b.dataset.v === 'none' ? null : Number(b.dataset.v);
+  });
+
+  $('btnAudioTest').addEventListener('click', startAudioTest);
+  $('btnRetest').addEventListener('click', startAudioTest);
+  $('btnBackCfg').addEventListener('click', () => { stopAudio(); clearInterval(testState && testState.timer); show('config'); });
+  $('btnSkipTest').addEventListener('click', () => startCall());
+  $('btnStartCall').addEventListener('click', () => startCall());
+
+  /* ══════════════ DÉROULEMENT DE L'APPEL ══════════════ */
+  function currentPhaseLabel() {
+    if (!S.plan || !S.plan.phases) return 'introduction';
+    const min = elapsedNow() / 60000; let acc = 0;
+    for (const p of S.plan.phases) { acc += p.minutes; if (min < acc) return p.key; }
+    return 'synthese';
+  }
+
+  function renderFrieze() {
+    if (!S.plan) return;
+    const cur = currentPhaseLabel();
+    const cols = { introduction:'#3a4350', strategie:'#4b6280', juridique:'#4a5f52', financier:'#6b5f42', synthese:'#4a4356' };
+    $('frieze').innerHTML = S.plan.phases.map((p) =>
+      '<div class="' + (p.key === cur ? 'cur' : '') + '" style="flex:' + p.minutes + ';background:' + cols[p.key] + '"></div>').join('');
+    $('friezeLbl').innerHTML = S.plan.phases.map((p) =>
+      '<span style="flex:' + p.minutes + '">' + esc(p.label) + ' ' + p.minutes + '′</span>').join('');
+  }
+
+  function tick() {
+    const el = elapsedNow();
+    $('cElapsed').textContent = mmss(el);
+    const left = S.cfg.duree * 60000 - el;
+    if (left >= 0) { $('cLeft').textContent = '(reste ' + mmss(left) + ')'; $('cLeft').classList.remove('warn'); }
+    else { $('cLeft').textContent = '(dépassé de ' + mmss(-left) + ')'; $('cLeft').classList.add('warn'); }
+    const ph = currentPhaseLabel();
+    if (S.phase !== 'intro') {
+      const p = S.plan && S.plan.phases.find((x) => x.key === ph);
+      $('cPhase').textContent = p ? p.label : '—';
+    }
+    renderFrieze();
+    if (left < 0 && !S.overWarned) {
+      S.overWarned = true;
+      warn('Durée prévue dépassée. Vous pouvez prolonger via « Modifier la durée » ou conclure — l’enregistrement continue.');
+    }
+  }
+
+  async function startCall() {
+    if (!S.cfg.societe || !S.cfg.duree || S.cfg.contexte.length < 10 || !S.cfg.consent) { show('config'); validateCfg(); return; }
+    show('call');
+    S.started = true; S.listening = true; S.lastResume = Date.now(); S.t0 = Date.now();
+    S.phase = 'intro'; $('introPanel').hidden = false; $('prompter').hidden = true;
+    $('cSociete').textContent = CADRE[S.cfg.societe].nom;
+    $('cCadre').textContent = CADRE[S.cfg.societe].cadre;
+    $('cTotal').textContent = S.cfg.duree + ' min';
+    $('recDot').className = 'dot rec';
+    segSet('segCat', S.categorie);
+    renderIntro(); renderContexte(); renderQueue(); renderTranscript();
+    clearInterval(S.timer); S.timer = setInterval(tick, 1000); tick();
+
+    // Plan de l'appel
+    try {
+      const docs = S.docs.filter((d) => d.extractable).map((d) => d.name + ' :\n' + d.text).join('\n\n');
+      const p = await api({ mode:'plan', duree: S.cfg.duree, documents: docs });
+      if (p && p.phases) { S.plan = p; S.reserve = p.reserve || []; renderFrieze(); tick(); }
+    } catch (e) { warn('Plan non généré (' + esc(e.message) + ') — l’appel continue.'); }
+
+    // Audio
+    try {
+      if (!dg.stream) dg.stream = await openMic();
+      if (!dg.token) dg.token = await dgToken();
+      await openSocket(onCallMsg);
+      S.engine = 'Deepgram nova-3';
+    } catch (e) {
+      warn('Deepgram indisponible (' + esc(e.message) + ') — bascule sur le moteur du navigateur.');
+      useWebSpeech();
+    }
+
+    clearInterval(S.prepTimer); S.prepTimer = setInterval(runPrepare, PREPARE_EVERY);
+    clearInterval(S.pingTimer); S.pingTimer = setInterval(ping, PING_EVERY);
+    requestSelect('demarrage');
+    persist();
+  }
+
+  function onCallMsg(m) {
+    if (m.type === 'UtteranceEnd') {
+      // Fin de tour : condition de sortie d'intro, et moment de proposer la suite.
+      const last = S.segments[S.segments.length - 1];
+      if (last && whoOf(last.sp) === 'them') awaitingPause = true;
+      if (S.phase === 'intro') { requestSelect('utterance'); maybeLeaveIntro('auto'); }
+      else {
+        // Une fin de tour est une pause naturelle : c'est le moment prévu pour
+        // remplacer l'intervention lue. Le verrou ne protège que la lecture.
+        if (S.pending && !S.pausedAuto) promote();
+        requestSelect('utterance');
       }
-      out.push(esc(line));
-    });
-    $('summaryBody').innerHTML = out.join('\n') + (streaming ? '<span class="caret"></span>' : '');
+      return;
+    }
+    if (m.type !== 'Results' || !m.channel) return;
+    const alt = m.channel.alternatives && m.channel.alternatives[0];
+    if (!alt || !alt.transcript) return;
+    const words = alt.words || [];
+    const sp = words.length ? words[0].speaker : null;
+    if (m.is_final) { setInterim('', sp); addSegment(alt.transcript, sp); }
+    else setInterim(alt.transcript, sp);
   }
 
-  async function endMeeting() {
-    stopListening();
-    state.ended = true;
-    updateUi();
-    $('summaryView').hidden = false;
-    $('summaryBody').innerHTML = '<div class="center-load"><span class="spin"></span><br><br>Génération du bilan…</div>';
-    $('copyBtn').disabled = true; $('dlBtn').disabled = true;
+  /* -------- catégories, durée -------- */
+  segment('segCat', (v) => {
+    S.categorie = v;
+    // Le clic manuel prime : transition immédiate, sans valider la catégorie quittée.
+    if (S.phase === 'questions') requestSelect('categorie-' + v, { intent:'changer-categorie' });
+    persist();
+  });
+  $('btnNextCat').addEventListener('click', () => {
+    const i = CAT_ORDER.indexOf(S.categorie);
+    if (i === CAT_ORDER.length - 1) { requestSelect('synthese', { intent:'proposer-synthese' }); return; }
+    S.categorie = CAT_ORDER[i + 1]; segSet('segCat', S.categorie);
+    if (S.phase === 'questions') requestSelect('categorie-suivante', { intent:'changer-categorie' });
+  });
+  $('btnChangeDur').addEventListener('click', async () => {
+    const choix = prompt('Nouvelle durée totale en minutes (20, 30, 45, 60, 90 ou 120) :', String(S.cfg.duree));
+    const d = Number(choix);
+    if ([20,30,45,60,90,120].indexOf(d) === -1) return;
+    S.cfg.duree = d; $('cTotal').textContent = d + ' min'; S.overWarned = false; saveCfg();
+    // Le temps écoulé est conservé ; seul le plan est recalculé.
+    try {
+      const p = await api({ mode:'plan', duree:d });
+      if (p && p.phases) { S.plan = p; S.reserve = p.reserve || []; }
+    } catch (e) {}
+    renderFrieze(); tick();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fold]'), (h) => {
+    h.addEventListener('click', () => { $(h.dataset.fold).classList.toggle('open'); });
+  });
+
+  /* ══════════════ FIN D'APPEL ══════════════ */
+  $('btnEnd').addEventListener('click', endCall);
+  async function endCall() {
+    S.listening = false; S.elapsedMs = elapsedNow();
+    clearInterval(S.timer); clearInterval(S.prepTimer);
+    stopAudio(); $('recDot').className = 'dot';
+    show('report');
+    $('reportSub').textContent = CADRE[S.cfg.societe].nom + ' — ' + S.cfg.canal + ' — ' +
+      mmss(S.elapsedMs) + ' sur ' + S.cfg.duree + ' min prévues';
+    $('reportBody').innerHTML = '<div style="color:var(--dim)"><span class="spin"></span> Génération du compte rendu…</div>';
+    $('btnCopy').disabled = true; $('btnDl').disabled = true;
     let acc = '';
     try {
-      const data = await callApi({
-        mode: 'summary', transcript: fullText(),
-        qa: state.answers.map((a) => ({ question: a.text, answer: a.answer })),
-        open: allActive().map((q) => q.text)
-      }, (t) => { acc += t; renderSummary(acc, true); });
-      state.summaryText = (data && data.text) || acc.trim();
-      if (!state.summaryText) throw new Error('Réponse vide du serveur.');
-      renderSummary(state.summaryText);
-      $('copyBtn').disabled = false; $('dlBtn').disabled = false;
+      const d = await api({
+        mode:'summary', transcript: fullText(), resume: S.resume, faits: S.facts,
+        questions: S.questions.map((q) => ({ texte:q.texte, statut:q.statut })),
+        temps: { elapsed: Math.round(S.elapsedMs/60000), total: S.cfg.duree }
+      }, (t) => { acc += t; renderReport(acc, true); });
+      S.reportText = (d && d.text) || acc.trim();
+      renderReport(S.reportText, false);
+      buildCorrections();
+      $('btnCopy').disabled = false; $('btnDl').disabled = false;
       persist();
     } catch (e) {
-      $('summaryBody').innerHTML = '<div class="msg err"><b>Bilan non généré.</b><br>' + esc(e.message) + '</div>' +
-        '<button class="btn wide" id="retrySum">Réessayer</button>';
-      const r = $('retrySum');
-      if (r) r.addEventListener('click', endMeeting);
+      $('reportBody').innerHTML = '<div class="msg err">Compte rendu non généré : ' + esc(e.message) + '</div>';
     }
   }
-  $('endBtn').addEventListener('click', endMeeting);
-  $('closeSummary').addEventListener('click', () => { $('summaryView').hidden = true; });
 
-  /* ------------------------------ Exports -------------------------------- */
-  function buildMarkdown() {
-    const L = ['# Bilan de réunion', '',
+  const HEADS = ['COMPTE RENDU','INFORMATIONS RECUEILLIES — STRATÉGIE','INFORMATIONS RECUEILLIES — JURIDIQUE',
+    'INFORMATIONS RECUEILLIES — FINANCIER','CORRECTIONS SENSIBLES À CONFIRMER','CONTRADICTIONS ET POINTS À CLARIFIER',
+    'QUESTIONS POSÉES ET RÉPONSES','POINTS OUVERTS ET REPORTÉS','PIÈCES À DEMANDER','ACTIONS',
+    'POSITION DANS LA CHRONOLOGIE','ORIENTATION DE SCÉNARIO','MENTION'];
+  function renderReport(text, streaming) {
+    const lines = String(text).split('\n'), out = [];
+    lines.forEach((l) => {
+      const t = l.trim().replace(/^#+\s*/,'').replace(/\*\*/g,'');
+      if (HEADS.indexOf(t.toUpperCase()) !== -1) { out.push('<h3>' + esc(t.toUpperCase()) + '</h3>'); return; }
+      out.push(esc(l));
+    });
+    $('reportBody').innerHTML = out.join('\n') + (streaming ? '<span class="caret"></span>' : '');
+  }
+
+  // Les corrections sensibles sont validées une à une avant l'export.
+  function buildCorrections() {
+    const sec = String(S.reportText).split('CORRECTIONS SENSIBLES À CONFIRMER')[1] || '';
+    const body = sec.split(/\n[A-ZÉÈÀÙÇ][A-ZÉÈÀÙÇ \-—&']{6,}\n/)[0] || '';
+    const items = body.split('\n').map((l) => l.replace(/^[-•]\s*/,'').trim()).filter((l) => l.length > 4);
+    S.corrections = items.map((t, i) => ({ id:'c'+i, texte:t, valide:false, corrige:'' }));
+    if (!S.corrections.length) { $('corrCard').hidden = true; return; }
+    $('corrCard').hidden = false;
+    $('corrList').innerHTML = S.corrections.map((c) =>
+      '<div class="corr" data-id="' + c.id + '"><div>' + esc(c.texte) + '</div>' +
+      '<div class="acts"><button class="btn sm" data-a="ok">✓ Confirmer</button>' +
+      '<input type="text" placeholder="Corriger…" data-a="fix"><button class="btn sm ghost" data-a="save">Enregistrer</button></div></div>').join('');
+  }
+  $('corrList').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const box = b.closest('.corr'); const c = S.corrections.find((x) => x.id === box.dataset.id); if (!c) return;
+    if (b.dataset.a === 'ok') { c.valide = true; c.corrige = ''; box.classList.add('done'); }
+    else if (b.dataset.a === 'save') {
+      const v = box.querySelector('input[data-a="fix"]').value.trim();
+      if (v) { c.corrige = v; c.valide = true; box.classList.add('done'); }
+    }
+  });
+
+  /* ------------------------------ export -------------------------------- */
+  function buildMd() {
+    const set = S.settings[S.cfg.societe] || {};
+    const L = ['# Compte rendu d’appel — ' + CADRE[S.cfg.societe].nom, '',
       '- **Date** : ' + new Date().toLocaleString('fr-FR'),
-      '- **Durée** : ' + mmss(elapsedNow()),
-      '- **Sujet** : ' + (topicValue() || 'non précisé'),
-      '- **Transcription** : ' + (state.engine === 'deepgram' ? 'Deepgram nova-3, locuteurs séparés' : 'moteur du navigateur'),
-      '', '---', '', state.summaryText || 'non précisé', '', '---', '', '## Questions & réponses obtenues', ''];
-    L.push(state.answers.length
-      ? state.answers.map((a) => '- **' + a.text + '**\n  → ' + a.answer + (a.why ? '\n  _💡 ' + a.why + '_' : '')).join('\n')
-      : '_Aucune question n’a reçu de réponse._');
-    L.push('', '## Questions restées sans réponse', '');
-    const open = allActive();
-    L.push(open.length ? open.map((q) => '- ' + q.text).join('\n') : '_Aucune._');
-    if (state.digest) L.push('', '## Mémoire de la réunion', '', state.digest);
-    L.push('', '---', '', '## Transcription complète', '', fullText() || '_Vide._', '');
+      '- **Advisor** : ' + (S.cfg.advisor || 'non précisé'),
+      '- **Canal** : ' + S.cfg.canal,
+      '- **Durée** : ' + mmss(S.elapsedMs) + ' sur ' + S.cfg.duree + ' min prévues',
+      '- **Cadre juridique de départ** : ' + CADRE[S.cfg.societe].cadre,
+      '- **Scénario envisagé** : ' + S.cfg.scenario,
+      '- **Transcription** : ' + (S.engine || 'non précisé') +
+        (S.speakerMe === null ? ' — attribution des locuteurs NON confirmée' : ''),
+      '- **Contexte du dossier** : ' + S.cfg.contexte,
+      '- **Règles validées disponibles** : ' + ((set.regles || '').trim() ? 'oui' : 'non — toute règle reste à confirmer'),
+      '', '---', '', S.reportText || 'non précisé', ''];
+    if (S.corrections.length) {
+      L.push('---', '', '## Corrections sensibles — validation advisor', '');
+      S.corrections.forEach((c) => {
+        L.push('- ' + c.texte + (c.corrige ? '\n  → **corrigé par l’advisor** : ' + c.corrige
+          : c.valide ? '\n  → confirmé par l’advisor' : '\n  → **NON VALIDÉ**'));
+      });
+    }
+    const posees = S.questions.filter((q) => ['posée','résolue','partielle'].indexOf(q.statut) !== -1);
+    const jamais = S.questions.filter((q) => ['affichée','préparée','reportée'].indexOf(q.statut) !== -1);
+    L.push('', '## Questions réellement posées ou résolues', '');
+    L.push(posees.length ? posees.map((q) => '- [' + q.statut + (q.spontanee ? ', réponse spontanée' : '') + '] ' + q.texte).join('\n') : '_Aucune._');
+    L.push('', '## Questions préparées mais jamais posées', '',
+      '_Elles ne constituent pas un échange avec le client._', '');
+    L.push(jamais.length ? jamais.map((q) => '- ' + q.texte).join('\n') : '_Aucune._');
+    if (S.facts.length) {
+      L.push('', '## Faits captés', '');
+      L.push(S.facts.map((f) => '- [' + f.categorie + '] ' + f.valeur + ' — ' + f.locuteur + ', ' + f.certitude +
+        (f.remplace ? ' (remplace : ' + f.remplace + ')' : '') + (f.citation ? '\n  « ' + f.citation + ' »' : '')).join('\n'));
+    }
+    if (S.contexte && Object.keys(S.contexte).length) {
+      L.push('', '## Contexte capté pendant l’introduction', '');
+      Object.keys(S.contexte).forEach((k) => L.push('- **' + k + '** : ' + S.contexte[k]));
+    }
+    L.push('', '---', '', '## Transcription complète', '', fullText() || '_Vide._', '',
+      '---', '', '_Ce compte rendu ne constitue ni une décision de qualification ni un accord de financement._', '');
     return L.join('\n');
   }
-  const stamp = () => {
-    const d = new Date(), p = (n) => String(n).padStart(2, '0');
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
-  };
-  $('copyBtn').addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(buildMarkdown());
-      $('copyBtn').textContent = '✅ Copié';
-      setTimeout(() => { $('copyBtn').textContent = '📋 Copier'; }, 1600);
-    } catch (e) { alert('Copie impossible — utilise le téléchargement.'); }
+  const stamp = () => { const d = new Date(), p = (n) => String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes()); };
+  $('btnCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(buildMd());
+      $('btnCopy').textContent = '✅ Copié'; setTimeout(() => { $('btnCopy').textContent = '📋 Copier'; }, 1600);
+    } catch (e) { alert('Copie impossible — utilisez le téléchargement.'); }
   });
-  $('dlBtn').addEventListener('click', () => {
-    try {
-      const blob = new Blob([buildMarkdown()], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'reunion-' + stamp() + '.md';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (e) { alert('Téléchargement impossible — utilise « Copier ».'); }
+  $('btnDl').addEventListener('click', () => {
+    const blob = new Blob([buildMd()], { type:'text/markdown;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'appel-' + stamp() + '.md'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('btnBackCall').addEventListener('click', () => show('call'));
+  $('btnNewCall').addEventListener('click', () => {
+    if (!confirm('Effacer cet appel et repartir de zéro ?')) return;
+    lsDel(LS.call); location.reload();
   });
 
-  /* --------------------------- Nouvelle réunion -------------------------- */
-  function resetMeeting() {
-    stopListening(); cancelPersist();
-    state.segments = []; state.now = null; state.next = []; state.later = [];
-    state.answers = []; state.retired = []; state.digest = ''; state.summaryText = '';
-    state.elapsedMs = 0; state.started = false; state.ended = false;
-    state.ask = ''; state.latencies = []; state.lastStart = 0;
-    firstSpeaker = null; qSeq = 0; prewarmedFor = '';
-    ws.rec = null;
-    lsDel(LS_MEETING);
-    renderTranscript(); renderQuestions(); renderAnswers();
-    setInterim('', null);
-    $('chrono').textContent = '00:00'; $('lat').textContent = '';
-    $('askBanner').hidden = true; $('endBtn').disabled = true;
-    setTopicCollapsed(false);
-    $('summaryView').hidden = true;
-    $('engineChip').hidden = true; state.engine = null;
-    ['micMsg', 'resumeMsg', 'fatalMsg'].forEach((id) => showMsg(id, ''));
-    updateTopicUi(); updateUi();
+  /* ---------------------------- persistance ----------------------------- */
+  let pTimer = null;
+  function persist() {
+    if (pTimer) return;
+    pTimer = setTimeout(() => {
+      pTimer = null;
+      lsSet(LS.call, { cfg:S.cfg, plan:S.plan, reserve:S.reserve, segments:S.segments.slice(-3000),
+        facts:S.facts, questions:S.questions, contexte:S.contexte, resume:S.resume,
+        phase:S.phase, introState:S.introState, categorie:S.categorie, speakerMe:S.speakerMe,
+        elapsedMs: elapsedNow(), started:S.started, reportText:S.reportText, savedAt:Date.now() });
+    }, 1200);
   }
-  $('newBtn').addEventListener('click', () => {
-    if (!confirm('Effacer cette réunion et repartir de zéro ?\nLe bilan non téléchargé sera perdu.')) return;
-    resetMeeting();
-  });
 
-  window.addEventListener('beforeunload', (e) => {
-    if (state.listening || (state.segments.length && !state.summaryText)) { e.preventDefault(); e.returnValue = ''; }
-  });
-
-  /* ------------------------------ Démarrage ------------------------------ */
+  /* ------------------------------ démarrage ----------------------------- */
   function boot() {
-    applyOptions();
-    initTranscriptDom();
-    renderQuestions(); renderAnswers();
-
-    const t = lsGet(LS_TOPIC); if (t) $('topic').value = t;
-    const pw = lsGet(LS_PW); if (pw) state.password = pw;
-    updateTopicUi();
-
-    if (!SR && !window.MediaRecorder) {
-      showMsg('fatalMsg', '<b>Ce navigateur ne peut ni enregistrer ni transcrire.</b> Ouvre la page dans Chrome (Android) ou Safari (iOS).');
+    const pw = lsGet(LS.pw); if (pw) S.password = pw;
+    loadSettings();
+    const c = lsGet(LS.cfg);
+    if (c) {
+      S.cfg = Object.assign(S.cfg, c); S.cfg.consent = false;
+      if (c.societe) { segSet('segSociete', c.societe);
+        $('cadreHint').textContent = 'Cadre juridique de départ : ' + CADRE[c.societe].cadre + '.'; }
+      if (c.duree) segSet('segDuree', c.duree);
+      if (c.scenario) segSet('segScenario', c.scenario);
+      if (c.canal) segSet('segCanal', c.canal);
+      $('advisorName').value = c.advisor || '';
+      $('dossierCtx').value = c.contexte || '';
     }
-
-    const m = lsGet(LS_MEETING);
-    const recent = m && m.savedAt && (Date.now() - m.savedAt < 12 * 3600 * 1000);
-    const resumable = recent && Array.isArray(m.segments) && m.segments.length > 0;
-    if (resumable) {
-      const mins = Math.round((m.elapsedMs || 0) / 60000);
-      showMsg('resumeMsg', '<b>Réunion non terminée retrouvée</b> — ' + m.segments.length + ' passages' +
-        (mins ? ', ' + mins + ' min' : '') + '.<div class="acts">' +
-        '<button class="btn primary" id="resumeYes">Reprendre</button>' +
-        '<button class="btn" id="resumeNo">Nouvelle réunion</button></div>');
-      $('resumeYes').addEventListener('click', () => {
-        loadMeeting(m); showMsg('resumeMsg', '');
-        if (m.started) setTopicCollapsed(true);
-        if (m.summaryText) { renderSummary(m.summaryText); $('summaryView').hidden = false; }
-      });
-      $('resumeNo').addEventListener('click', () => { showMsg('resumeMsg', ''); resetMeeting(); });
-    } else {
-      if (m) lsDel(LS_MEETING);
-      updateUi();
-    }
-
-    if (!state.password && !resumable) {
-      askPassword('Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.');
-    }
-
-    // Préchauffage : au chargement, puis toutes les 4 minutes.
+    validateCfg();
+    listMics();
     ping();
-    state.pingTimer = setInterval(ping, PING_EVERY_MS);
+    if (!S.password) askPassword('Saisis le mot de passe de l’application. Il sera mémorisé sur ce poste.');
+    window.addEventListener('beforeunload', (e) => {
+      if (S.listening) { e.preventDefault(); e.returnValue = ''; }
+    });
   }
-
   boot();
+
+  // Surface de test (non utilisée par l'interface).
+  window.__adv = { S, applySelect, maybeLeaveIntro, addSegment, setInterim, setCurrent, renderIntro };
 })();
 </script>
 </body>
