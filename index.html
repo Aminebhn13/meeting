@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#0d1117">
-<meta name="description" content="Copilote de réunion : écoute, suggère les questions à poser, produit le bilan.">
+<meta name="description" content="Copilote de réunion : écoute, suit les questions en direct, produit le bilan.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -26,12 +26,13 @@
     --danger:      #f85149;
     --ok:          #3fb950;
     --warn:        #d29922;
+    --anim:        300ms;
+    --ease:        cubic-bezier(.4, 0, .2, 1);
     --safe-b: env(safe-area-inset-bottom, 0px);
     --safe-t: env(safe-area-inset-top, 0px);
     --bar-h: 72px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  /* L'attribut hidden doit l'emporter sur nos display: flex/block. */
   [hidden] { display: none !important; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
   body {
@@ -46,45 +47,27 @@
   /* ---------------- Sujet ---------------- */
   .topic-wrap { margin-bottom: 18px; }
   #topic {
-    width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 16px;
-    padding: 13px 14px;
-    appearance: none; -webkit-appearance: none;
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-family: inherit; font-size: 16px;
+    padding: 13px 14px; appearance: none; -webkit-appearance: none;
   }
   #topic::placeholder { color: var(--faint); }
   #topic:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(88,166,255,.14); }
   #topic:disabled { opacity: .55; }
 
   /* ---------------- Bouton d'écoute ---------------- */
-  .listen-row {
-    display: flex; align-items: center; gap: 16px;
-    margin-bottom: 22px;
-  }
+  .listen-row { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
   #listenBtn {
-    width: 96px; height: 96px; flex: none;
-    border-radius: 50%;
-    border: none;
-    background: var(--accent-dim);
-    color: #fff;
-    font-family: inherit;
-    font-size: 15px; font-weight: 700; line-height: 1.25;
-    cursor: pointer;
+    width: 96px; height: 96px; flex: none; border-radius: 50%; border: none;
+    background: var(--accent-dim); color: #fff; font-family: inherit;
+    font-size: 15px; font-weight: 700; line-height: 1.25; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
     box-shadow: 0 6px 20px rgba(31,111,235,.35);
-    transition: transform .1s ease, background .15s ease, box-shadow .15s ease;
+    transition: transform .1s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease);
   }
   #listenBtn .ico { font-size: 26px; line-height: 1; }
   #listenBtn:active { transform: scale(.95); }
-  #listenBtn.on {
-    background: var(--surface-2);
-    color: var(--text);
-    box-shadow: 0 0 0 3px rgba(248,81,73,.3);
-  }
+  #listenBtn.on { background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px rgba(248,81,73,.3); }
   #listenBtn:disabled { opacity: .4; box-shadow: none; cursor: default; }
 
   .meta { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -93,31 +76,36 @@
   .dot.rec { background: var(--danger); animation: blink 1.15s ease-in-out infinite; }
   .dot.paused { background: var(--warn); }
   @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .15 } }
-  @media (prefers-reduced-motion: reduce) { .dot.rec { animation: none } }
-  #chrono { font-size: 30px; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+  #chrono { font-size: 30px; font-weight: 300; font-variant-numeric: tabular-nums; }
   #liveLabel { font-size: 13px; color: var(--dim); }
 
-  /* ---------------- Questions ---------------- */
+  /* ---------------- En-tête de section ---------------- */
   .sec-head {
-    display: flex; align-items: center; gap: 10px;
-    margin: 0 0 12px;
+    display: flex; align-items: center; gap: 10px; margin: 0 0 12px;
     font-size: 12px; font-weight: 700; letter-spacing: .09em;
     color: var(--dim); text-transform: uppercase;
   }
-  .sec-head .ttl { flex: 1; }
+  .sec-head .ttl { flex: none; }
+  .sec-head .spacer { flex: 1; }
+  #analyzing {
+    font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: none;
+    color: var(--accent); opacity: 0; transition: opacity var(--anim) var(--ease);
+    white-space: nowrap;
+  }
+  #analyzing.on { opacity: .85; }
+  #analyzing .pulse { animation: pulse 1.2s ease-in-out infinite; display: inline-block; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+
   .icon-btn {
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--dim); border-radius: 9px;
-    width: 38px; height: 38px; flex: none;
-    font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: 1px solid var(--border); color: var(--dim);
+    border-radius: 9px; width: 38px; height: 38px; flex: none; font-size: 16px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
   .icon-btn:active { background: var(--surface-2); }
   .icon-btn:disabled { opacity: .4; cursor: default; }
-  .icon-btn.busy { animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg) } }
 
-  ul.qlist { list-style: none; margin: 0 0 14px; padding: 0; }
+  /* ---------------- Questions actives ---------------- */
+  ul.qlist { list-style: none; margin: 0; padding: 0; }
   ul.qlist li {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -125,38 +113,62 @@
     border-radius: 12px;
     padding: 15px 16px;
     margin-bottom: 9px;
-    font-size: 19px; line-height: 1.4; font-weight: 500;
-    cursor: pointer;
-    transition: opacity .15s ease, background .15s ease;
+    overflow: hidden;
+    position: relative;
+    transition:
+      opacity var(--anim) var(--ease),
+      transform var(--anim) var(--ease),
+      height var(--anim) var(--ease),
+      margin-bottom var(--anim) var(--ease),
+      padding-top var(--anim) var(--ease),
+      padding-bottom var(--anim) var(--ease),
+      border-left-color var(--anim) var(--ease);
   }
-  ul.qlist li:active { background: var(--surface-2); }
-  ul.qlist li.asked {
-    text-decoration: line-through;
-    text-decoration-color: var(--faint);
-    color: var(--faint);
-    border-left-color: var(--ok);
-    opacity: .6;
-    font-weight: 400;
+  .qtext { font-size: 19px; line-height: 1.4; font-weight: 500; transition: color var(--anim) var(--ease); }
+  .qmark {
+    position: absolute; top: 14px; right: 14px;
+    color: var(--ok); font-size: 17px; font-weight: 700;
+    opacity: 0; transform: scale(.5);
+    transition: opacity var(--anim) var(--ease), transform var(--anim) var(--ease);
   }
-  ul.qlist.old li {
-    background: none;
-    border: 1px solid var(--border-soft);
-    border-left: 3px solid var(--border);
-    color: var(--dim);
-    font-size: 15px;
-    font-weight: 400;
-    padding: 11px 13px;
-    margin-bottom: 7px;
+  .qanswer {
+    max-height: 0; opacity: 0; overflow: hidden;
+    font-size: 14.5px; line-height: 1.45; color: var(--ok);
+    transition: max-height var(--anim) var(--ease), opacity var(--anim) var(--ease),
+                margin-top var(--anim) var(--ease), padding-top var(--anim) var(--ease);
   }
-  ul.qlist.old li.asked { border-left-color: var(--ok); color: var(--faint); }
 
-  .hist-toggle {
-    background: none; border: none; color: var(--faint);
-    font-family: inherit; font-size: 13px; cursor: pointer;
-    padding: 6px 0; display: flex; align-items: center; gap: 7px;
+  /* nouvelle question : apparition en fondu depuis le bas */
+  ul.qlist li.entering { opacity: 0; transform: translateY(14px); }
+
+  /* question répondue : coche verte + réponse, avant disparition */
+  ul.qlist li.answered { border-left-color: var(--ok); padding-right: 40px; }
+  ul.qlist li.answered .qtext { color: var(--dim); }
+  ul.qlist li.answered .qmark { opacity: 1; transform: scale(1); }
+  ul.qlist li.answered .qanswer {
+    max-height: 200px; opacity: 1;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px dashed rgba(63,185,80,.3);
   }
-  .hist-toggle .chev { font-size: 10px; transition: transform .18s ease; }
-  .hist-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+
+  /* question obsolète : fondu discret */
+  ul.qlist li.obsolete { opacity: .25; border-left-color: var(--border); }
+
+  /* sortie : la carte glisse, la hauteur se referme (rien ne saute) */
+  ul.qlist li.leaving {
+    height: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-top-width: 0; border-bottom-width: 0;
+    opacity: 0;
+    transform: translateX(28px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dot.rec, #analyzing .pulse { animation: none; }
+    ul.qlist li, .qtext, .qmark, .qanswer, #analyzing { transition-duration: 1ms; }
+  }
 
   .placeholder {
     color: var(--faint); font-size: 15px; font-style: italic;
@@ -164,23 +176,35 @@
     border-radius: 12px; padding: 20px 16px; text-align: center;
   }
 
-  /* ---------------- Transcription ---------------- */
-  details.tr {
-    border: 1px solid var(--border); border-radius: 12px;
-    background: var(--surface); margin: 20px 0 0;
+  /* ---------------- Réponses obtenues ---------------- */
+  .fold-toggle {
+    background: none; border: none; color: var(--dim);
+    font-family: inherit; font-size: 13.5px; cursor: pointer;
+    padding: 10px 0; display: flex; align-items: center; gap: 8px; width: 100%;
   }
+  .fold-toggle .chev { font-size: 10px; color: var(--faint); transition: transform .18s var(--ease); }
+  .fold-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .fold-toggle .tick { color: var(--ok); font-weight: 700; }
+  ul.answers { list-style: none; margin: 0 0 6px; padding: 0; }
+  ul.answers li {
+    border-left: 2px solid var(--border); padding: 0 0 0 12px; margin-bottom: 14px;
+  }
+  ul.answers .aq { font-size: 14px; color: var(--faint); line-height: 1.4; }
+  ul.answers .aa { font-size: 15px; color: var(--text); line-height: 1.45; margin-top: 3px; }
+
+  /* ---------------- Transcription ---------------- */
+  details.tr { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin: 18px 0 0; }
   details.tr > summary {
-    list-style: none; cursor: pointer; padding: 13px 15px;
-    font-size: 13.5px; color: var(--dim);
-    display: flex; align-items: center; gap: 9px;
+    list-style: none; cursor: pointer; padding: 13px 15px; font-size: 13.5px;
+    color: var(--dim); display: flex; align-items: center; gap: 9px;
   }
   details.tr > summary::-webkit-details-marker { display: none; }
-  details.tr > summary .chev { font-size: 10px; color: var(--faint); transition: transform .18s ease; }
+  details.tr > summary .chev { font-size: 10px; color: var(--faint); transition: transform .18s var(--ease); }
   details.tr[open] > summary .chev { transform: rotate(90deg); }
   details.tr > summary .count { margin-left: auto; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
   #transcript {
-    margin: 0 12px 12px; padding: 12px;
-    background: var(--bg); border: 1px solid var(--border-soft); border-radius: 9px;
+    margin: 0 12px 12px; padding: 12px; background: var(--bg);
+    border: 1px solid var(--border-soft); border-radius: 9px;
     max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
     font-size: 14px; line-height: 1.55; overscroll-behavior: contain;
   }
@@ -189,7 +213,7 @@
   .ts { color: var(--faint); font-size: 11.5px; font-variant-numeric: tabular-nums; margin-right: 6px; user-select: none; }
   .interim { color: var(--faint); font-style: italic; }
 
-  /* ---------------- Messages ---------------- */
+  /* ---------------- Messages / boutons ---------------- */
   .msg { border-radius: 10px; padding: 11px 13px; font-size: 13.5px; line-height: 1.5; margin-bottom: 12px; border: 1px solid; }
   .msg.err  { background: rgba(248,81,73,.09);  border-color: rgba(248,81,73,.35);  color: #ffb4ae; }
   .msg.warn { background: rgba(210,153,34,.09); border-color: rgba(210,153,34,.35); color: #e3b341; }
@@ -198,7 +222,6 @@
   .msg b { font-weight: 680; }
   .msg .acts { display: flex; gap: 8px; margin-top: 10px; }
 
-  /* ---------------- Boutons ---------------- */
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 7px;
     background: var(--surface); border: 1px solid var(--border); color: var(--text);
@@ -228,56 +251,39 @@
     border: 2px solid rgba(255,255,255,.28); border-top-color: #fff;
     border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
   }
+  @keyframes spin { to { transform: rotate(360deg) } }
 
   /* ---------------- Modales / plein écran ---------------- */
   .overlay {
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(5,7,10,.72);
+    position: fixed; inset: 0; z-index: 100; background: rgba(5,7,10,.72);
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 20px;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
   }
-  .overlay[hidden] { display: none; }
-  .sheet {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 16px; padding: 22px; width: 100%; max-width: 420px;
-  }
+  .sheet { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; width: 100%; max-width: 420px; }
   .sheet h2 { margin: 0 0 8px; font-size: 18px; font-weight: 650; }
   .sheet p { margin: 0 0 16px; font-size: 14px; color: var(--dim); line-height: 1.5; }
   .sheet input[type=password] {
     width: 100%; background: var(--bg); border: 1px solid var(--border);
     border-radius: 10px; color: var(--text); font-family: inherit; font-size: 16px;
-    padding: 12px 13px; margin-bottom: 12px;
-    appearance: none; -webkit-appearance: none;
+    padding: 12px 13px; margin-bottom: 12px; appearance: none; -webkit-appearance: none;
   }
   .sheet input:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(88,166,255,.14); }
 
-  /* Bilan plein écran */
   #summaryView {
-    position: fixed; inset: 0; z-index: 90;
-    background: var(--bg);
-    display: flex; flex-direction: column;
-    padding: calc(var(--safe-t) + 14px) 0 0;
+    position: fixed; inset: 0; z-index: 90; background: var(--bg);
+    display: flex; flex-direction: column; padding: calc(var(--safe-t) + 14px) 0 0;
   }
-  #summaryView[hidden] { display: none; }
-  #summaryView .sv-head {
-    display: flex; align-items: center; gap: 10px;
-    padding: 0 16px 12px; border-bottom: 1px solid var(--border);
-  }
+  #summaryView .sv-head { display: flex; align-items: center; gap: 10px; padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
   #summaryView .sv-head h2 { margin: 0; font-size: 17px; font-weight: 650; flex: 1; }
   #summaryView .sv-body {
     flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
     padding: 16px; font-size: 15.5px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;
   }
-  #summaryView .sv-body h3 {
-    margin: 22px 0 7px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--accent);
-  }
+  #summaryView .sv-body h3 { margin: 22px 0 7px; font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--accent); }
   #summaryView .sv-body h3:first-child { margin-top: 0; }
   #summaryView .sv-foot {
-    padding: 12px 16px calc(12px + var(--safe-b));
-    border-top: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: 9px;
-    background: var(--surface);
+    padding: 12px 16px calc(12px + var(--safe-b)); border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 9px; background: var(--surface);
   }
   .center-load { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 15px; }
 </style>
@@ -302,18 +308,18 @@
 
 <div class="sec-head">
   <span class="ttl">Questions à poser</span>
-  <button class="icon-btn" id="refreshQ" title="Générer de nouvelles questions" aria-label="Générer de nouvelles questions">↻</button>
+  <span id="analyzing"><span class="pulse">●</span> analyse…</span>
+  <span class="spacer"></span>
+  <button class="icon-btn" id="refreshQ" title="Analyser maintenant" aria-label="Analyser maintenant">↻</button>
 </div>
 
-<div class="msg err" id="qErr"></div>
+<ul class="qlist" id="qList"></ul>
+<div class="placeholder" id="qPlaceholder">Appuie sur <b>Écouter</b> — les questions se mettent à jour toutes seules.</div>
 
-<ul class="qlist" id="qCurrent"></ul>
-<div class="placeholder" id="qPlaceholder">Appuie sur <b>Écouter</b> — les questions apparaîtront ici.</div>
-
-<button class="hist-toggle" id="histToggle" aria-expanded="false" hidden>
-  <span class="chev">▶</span><span id="histLabel">Questions précédentes</span>
+<button class="fold-toggle" id="ansToggle" aria-expanded="false" hidden>
+  <span class="chev">▶</span><span class="tick">✓</span><span id="ansLabel">Réponses obtenues</span>
 </button>
-<ul class="qlist old" id="qHistory" hidden></ul>
+<ul class="answers" id="ansList" hidden></ul>
 
 <details class="tr" id="trDetails">
   <summary><span class="chev">▶</span><span>Voir la transcription</span><span class="count" id="trCount">0</span></summary>
@@ -324,7 +330,6 @@
   <button class="btn" id="endBtn" disabled>■ Terminer la réunion</button>
 </nav>
 
-<!-- Mot de passe : demandé une seule fois -->
 <div class="overlay" id="pwOverlay" hidden>
   <div class="sheet">
     <h2>Mot de passe</h2>
@@ -335,7 +340,6 @@
   </div>
 </div>
 
-<!-- Bilan plein écran -->
 <div id="summaryView" hidden>
   <div class="sv-head">
     <h2>Bilan de la réunion</h2>
@@ -367,29 +371,37 @@
   /* ----------------------- localStorage (try/catch) ---------------------- */
   const LS_PW = 'mc.pw.v2';
   const LS_TOPIC = 'mc.topic.v2';
-  const LS_MEETING = 'mc.meeting.v2';
+  const LS_MEETING = 'mc.meeting.v3';
 
   function lsGet(k) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { /* ignoré */ } }
 
   /* ------------------------------- Réglages ------------------------------ */
-  const AUTO_INTERVAL_MS = 45000;   // génération automatique toutes les ~45 s
-  const MIN_NEW_CHARS    = 150;     // …si au moins 150 nouveaux caractères
-  const MIN_CHARS_FIRST  = 150;     // matière minimale avant la 1re génération
+  const LIVE_MIN_INTERVAL = 12000;  // au plus 1 appel toutes les 12 s
+  const LIVE_MIN_NEW_CHARS = 80;    // …et seulement après ~80 nouveaux caractères
+  const LIVE_TAIL_CHARS = 4000;     // on n'envoie que la fin de la transcription
+  const TARGET_QUESTIONS = 3;
+  const ANSWER_HOLD_MS = 2000;      // la réponse reste lisible 2 s
+  const ANIM_MS = 300;
 
   /* -------------------------------- État --------------------------------- */
   const state = {
     listening: false, started: false, ended: false,
     segments: [], interim: '',
-    questions: [],            // { id, text, at, asked }
+    questions: [],        // actives  : { id, text, at }
+    answers: [],          // répondues: { id, text, answer, at }
+    retired: [],          // textes des questions devenues obsolètes (anti-doublon)
     elapsedMs: 0, lastResume: 0,
-    chronoTimer: null, autoTimer: null, restartTimer: null,
+    chronoTimer: null, liveTimer: null, restartTimer: null,
     wakeLock: null, recognition: null,
     manualStop: false, errorStreak: 0,
-    qLoading: false, qLastChars: 0, qLastAt: 0,
+    liveLoading: false, livePending: false, lastCallAt: 0, lastChars: 0,
     summaryText: '', password: '', supported: false
   };
+
+  let qSeq = 0;
+  const nextId = () => 'q' + (++qSeq);
 
   /* ============================ MOT DE PASSE ============================= */
   let pwResolve = null;
@@ -435,7 +447,6 @@
     try { data = await res.json(); } catch (e) { /* non JSON */ }
 
     if (res.status === 401) {
-      // Mot de passe refusé : on le redemande, puis on retente une fois.
       state.password = '';
       lsDel(LS_PW);
       if (allowRetry !== false) {
@@ -449,8 +460,8 @@
       err.status = res.status;
       throw err;
     }
-    if (!data || !data.text) throw new Error('Réponse vide du serveur.');
-    return data.text;
+    if (!data) throw new Error('Réponse vide du serveur.');
+    return data;
   }
 
   /* ============================ TRANSCRIPTION =========================== */
@@ -459,6 +470,7 @@
 
   const elapsedNow = () => state.elapsedMs + (state.listening ? Date.now() - state.lastResume : 0);
   const fullText = () => state.segments.map((s) => '[' + mmss(s.t) + '] ' + s.text).join('\n');
+  const tailText = () => fullText().slice(-LIVE_TAIL_CHARS);
   const plainChars = () => state.segments.reduce((n, s) => n + s.text.length, 0);
   const nearBottom = () => transcriptEl.scrollHeight - transcriptEl.scrollTop - transcriptEl.clientHeight < 60;
 
@@ -486,6 +498,7 @@
     if (stick) transcriptEl.scrollTop = transcriptEl.scrollHeight;
     $('trCount').textContent = state.segments.length;
     persist();
+    maybeAnalyze();          // une phrase finale vient d'arriver
   }
 
   function setInterim(text) {
@@ -511,99 +524,199 @@
     $('trCount').textContent = state.segments.length;
   }
 
-  /* ============================== QUESTIONS ============================= */
-  let qSeq = 0;
+  /* ====================== QUESTIONS : rendu & animations ================= */
+  const qList = $('qList');
+
+  function cardNode(q) {
+    const li = document.createElement('li');
+    li.dataset.id = q.id;
+    li.innerHTML =
+      '<span class="qmark">✓</span>' +
+      '<div class="qtext">' + esc(q.text) + '</div>' +
+      '<div class="qanswer"></div>';
+    return li;
+  }
+
+  const cardById = (id) => qList.querySelector('li[data-id="' + id + '"]');
+
+  function addCard(q, animate) {
+    const li = cardNode(q);
+    if (animate) li.classList.add('entering');
+    qList.appendChild(li);
+    if (animate) {
+      // Double rAF : la classe de départ doit être peinte avant d'être retirée.
+      requestAnimationFrame(() => requestAnimationFrame(() => li.classList.remove('entering')));
+    }
+    updatePlaceholder();
+  }
+
+  // Referme la carte en douceur : la hauteur passe à 0, les voisines ne sautent pas.
+  function collapseCard(li, done) {
+    if (!li || li.dataset.leaving) { if (done) done(); return; }
+    li.dataset.leaving = '1';
+    li.style.height = li.offsetHeight + 'px';
+    void li.offsetHeight;                      // force le reflow
+    li.classList.add('leaving');
+    setTimeout(() => { li.remove(); updatePlaceholder(); if (done) done(); }, ANIM_MS + 40);
+  }
+
+  function markAnswered(id, answer) {
+    const li = cardById(id);
+    if (!li) return;
+    const ans = li.querySelector('.qanswer');
+    if (ans) ans.textContent = answer;
+    li.classList.add('answered');
+    setTimeout(() => collapseCard(li), ANSWER_HOLD_MS);
+  }
+
+  function markObsolete(id) {
+    const li = cardById(id);
+    if (!li) return;
+    li.classList.add('obsolete');
+    setTimeout(() => collapseCard(li), ANIM_MS);
+  }
+
+  function updatePlaceholder() {
+    $('qPlaceholder').hidden = state.questions.length > 0 || qList.children.length > 0;
+  }
 
   function renderQuestions() {
-    const all = state.questions.slice().sort((a, b) => b.at - a.at);
-    const current = all.slice(0, 3);
-    const older = all.slice(3);
-
-    $('qPlaceholder').hidden = all.length > 0;
-    $('qCurrent').innerHTML = current.map(liHtml).join('');
-
-    const hasOld = older.length > 0;
-    $('histToggle').hidden = !hasOld;
-    $('histLabel').textContent = older.length + ' question' + (older.length > 1 ? 's' : '') + ' précédente' + (older.length > 1 ? 's' : '');
-    $('qHistory').innerHTML = older.map(liHtml).join('');
-    if (!hasOld) { $('qHistory').hidden = true; $('histToggle').setAttribute('aria-expanded', 'false'); }
-    else { $('qHistory').hidden = $('histToggle').getAttribute('aria-expanded') !== 'true'; }
+    qList.innerHTML = '';
+    state.questions.forEach((q) => qList.appendChild(cardNode(q)));
+    updatePlaceholder();
   }
 
-  function liHtml(q) {
-    return '<li data-id="' + q.id + '"' + (q.asked ? ' class="asked"' : '') + '>' + esc(q.text) + '</li>';
+  /* ------------------------- Réponses obtenues --------------------------- */
+  function renderAnswers() {
+    const n = state.answers.length;
+    $('ansToggle').hidden = n === 0;
+    $('ansLabel').textContent = 'Réponses obtenues (' + n + ')';
+    $('ansList').innerHTML = state.answers.map((a) =>
+      '<li><div class="aq">' + esc(a.text) + '</div><div class="aa">' + esc(a.answer) + '</div></li>'
+    ).join('');
+    if (n === 0) {
+      $('ansList').hidden = true;
+      $('ansToggle').setAttribute('aria-expanded', 'false');
+    } else {
+      $('ansList').hidden = $('ansToggle').getAttribute('aria-expanded') !== 'true';
+    }
   }
 
-  function toggleAsked(e) {
-    const li = e.target.closest('li[data-id]');
-    if (!li) return;
-    const id = Number(li.dataset.id);
-    const q = state.questions.find((x) => x.id === id);
-    if (!q) return;
-    q.asked = !q.asked;
-    li.classList.toggle('asked', q.asked);
-    persist();
-  }
-  $('qCurrent').addEventListener('click', toggleAsked);
-  $('qHistory').addEventListener('click', toggleAsked);
-
-  $('histToggle').addEventListener('click', () => {
-    const open = $('histToggle').getAttribute('aria-expanded') === 'true';
-    $('histToggle').setAttribute('aria-expanded', open ? 'false' : 'true');
-    $('qHistory').hidden = open;
+  $('ansToggle').addEventListener('click', () => {
+    const open = $('ansToggle').getAttribute('aria-expanded') === 'true';
+    $('ansToggle').setAttribute('aria-expanded', open ? 'false' : 'true');
+    $('ansList').hidden = open;
   });
 
-  function parseQuestions(text) {
-    return text.split('\n')
-      .map((l) => l.trim().replace(/^[-–•*]\s*/, '').replace(/^\d+[.)]\s*/, '').trim())
-      .filter((l) => l.length > 3)   // écarte les lignes parasites, garde « Qui ? »
-      .slice(0, 3);
+  /* ========================== CYCLE TEMPS RÉEL ========================== */
+  function setAnalyzing(on) { $('analyzing').classList.toggle('on', on); }
+
+  function buzz() {
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { /* ignoré */ }
   }
 
-  async function generateQuestions() {
-    if (state.qLoading) return;
-    const chars = plainChars();
-    if (chars < MIN_CHARS_FIRST) {
-      showMsg('qErr', 'Pas encore assez de matière — laisse la conversation démarrer.', 4000);
-      return;
-    }
-    state.qLoading = true;
-    showMsg('qErr', '');
-    $('refreshQ').classList.add('busy');
-    $('refreshQ').disabled = true;
+  function knownTexts() {
+    return state.answers.map((a) => a.text)
+      .concat(state.retired)
+      .concat(state.questions.map((q) => q.text));
+  }
+
+  function applyLive(data) {
+    const answered = Array.isArray(data.answered) ? data.answered : [];
+    const obsolete = Array.isArray(data.obsolete) ? data.obsolete : [];
+    const fresh = Array.isArray(data.new) ? data.new : [];
+
+    // 1. Répondues : coche + réponse affichée, puis la carte se retire.
+    answered.forEach((a) => {
+      const q = state.questions.find((x) => x.id === a.id);
+      if (!q) return;
+      state.questions = state.questions.filter((x) => x.id !== a.id);
+      state.answers.push({ id: q.id, text: q.text, answer: a.answer, at: Date.now() });
+      markAnswered(a.id, a.answer);
+    });
+
+    // 2. Obsolètes : fondu discret.
+    obsolete.forEach((id) => {
+      const q = state.questions.find((x) => x.id === id);
+      if (!q) return;
+      state.questions = state.questions.filter((x) => x.id !== id);
+      state.retired.push(q.text);
+      markObsolete(id);
+    });
+
+    // 3. Nouvelles : on complète jusqu'à TARGET_QUESTIONS, sans doublon.
+    const seen = knownTexts().map((t) => t.toLowerCase());
+    let added = 0;
+    fresh.forEach((text) => {
+      if (state.questions.length >= TARGET_QUESTIONS) return;
+      const key = text.toLowerCase();
+      if (seen.indexOf(key) !== -1) return;
+      seen.push(key);
+      const q = { id: nextId(), text: text, at: Date.now() };
+      state.questions.push(q);
+      addCard(q, true);
+      added++;
+    });
+
+    if (answered.length) renderAnswers();
+    if (added) buzz();
+    if (answered.length || obsolete.length || added) persist();
+  }
+
+  async function runLive() {
+    state.liveLoading = true;
+    state.livePending = false;
+    const charsAtCall = plainChars();
+    setAnalyzing(true);
     try {
-      const out = await callApi({
-        mode: 'questions',
-        transcript: fullText(),
-        proposed: state.questions.map((q) => q.text),
-        asked: state.questions.filter((q) => q.asked).map((q) => q.text)
+      const data = await callApi({
+        mode: 'live',
+        transcript: tailText(),
+        questions: state.questions.map((q) => ({ id: q.id, text: q.text })),
+        answered: state.answers.map((a) => a.text).concat(state.retired)
       });
-      const now = Date.now();
-      parseQuestions(out).forEach((text, i) => {
-        state.questions.push({ id: ++qSeq, text, at: now + i, asked: false });
-      });
-      renderQuestions();
-      persist();
+      applyLive(data || {});
+      state.lastChars = charsAtCall;
     } catch (e) {
-      showMsg('qErr', esc(e.message));
+      // En réunion, une erreur d'analyse ne doit rien casser à l'écran.
+      state.lastChars = charsAtCall;
     } finally {
-      state.qLoading = false;
-      state.qLastChars = chars;
-      state.qLastAt = Date.now();
-      $('refreshQ').classList.remove('busy');
-      $('refreshQ').disabled = false;
+      state.lastCallAt = Date.now();
+      state.liveLoading = false;
+      setAnalyzing(false);
+      if (state.livePending) {
+        state.livePending = false;
+        setTimeout(maybeAnalyze, 50);
+      }
     }
   }
-  $('refreshQ').addEventListener('click', generateQuestions);
 
-  function autoTick() {
-    if (!state.listening || state.qLoading) return;
-    if (Date.now() - state.qLastAt < AUTO_INTERVAL_MS) return;
+  // Un appel part quand : phrase finale transcrite + ~80 nouveaux caractères
+  // + 12 s depuis le dernier appel. Jamais deux en parallèle.
+  let gateTimer = null;
+
+  function maybeAnalyze(force) {
+    if (!state.supported && !force) return;
+    if (state.liveLoading) { state.livePending = true; return; }
     const chars = plainChars();
-    if (chars - state.qLastChars < MIN_NEW_CHARS) return;   // rien de neuf : pas d'appel
-    if (chars < MIN_CHARS_FIRST) return;
-    generateQuestions();
+    if (!force) {
+      if (!state.listening) return;
+      if (chars - state.lastChars < LIVE_MIN_NEW_CHARS) return;
+      const wait = LIVE_MIN_INTERVAL - (Date.now() - state.lastCallAt);
+      if (wait > 0) {
+        // Le texte est prêt mais la fenêtre n'est pas ouverte : on arme un
+        // rappel pour l'instant exact où elle s'ouvre, sans attendre le tick.
+        clearTimeout(gateTimer);
+        gateTimer = setTimeout(() => maybeAnalyze(), wait + 20);
+        return;
+      }
+    }
+    if (chars < 40) return;
+    clearTimeout(gateTimer);
+    runLive();
   }
+
+  $('refreshQ').addEventListener('click', () => maybeAnalyze(true));
 
   function showMsg(id, html, hideMs) {
     const el = $(id);
@@ -669,7 +782,6 @@
       state.errorStreak++;
     };
 
-    // Les navigateurs mobiles coupent l'écoute très régulièrement : on relance.
     rec.onend = () => {
       if (!state.listening || state.manualStop) return;
       const delay = state.errorStreak > 3 ? Math.min(400 * state.errorStreak, 5000) : 250;
@@ -707,11 +819,11 @@
     state.started = true;
     state.ended = false;
     state.lastResume = Date.now();
-    if (!state.qLastAt) state.qLastAt = Date.now();
     startChrono();
     requestWakeLock();
-    clearInterval(state.autoTimer);
-    state.autoTimer = setInterval(autoTick, 3000);
+    clearInterval(state.liveTimer);
+    // Relance périodique : rattrape le cas « assez de texte, mais délai non écoulé ».
+    state.liveTimer = setInterval(() => maybeAnalyze(), 2000);
     $('endBtn').disabled = false;
     $('topic').disabled = true;
     updateUi();
@@ -722,7 +834,8 @@
     if (state.listening) { state.elapsedMs = elapsedNow(); state.listening = false; }
     state.manualStop = true;
     clearTimeout(state.restartTimer);
-    clearInterval(state.autoTimer);
+    clearTimeout(gateTimer);
+    clearInterval(state.liveTimer);
     if (state.recognition) { try { state.recognition.stop(); } catch (e) { /* ignoré */ } }
     setInterim('');
     stopChrono();
@@ -780,17 +893,16 @@
 
   /* ============================ PERSISTANCE ============================= */
   let persistTimer = null;
-  function cancelPersist() {
-    clearTimeout(persistTimer);
-    persistTimer = null;
-  }
+  function cancelPersist() { clearTimeout(persistTimer); persistTimer = null; }
   function persist() {
     if (persistTimer) return;
     persistTimer = setTimeout(() => {
       persistTimer = null;
       lsSet(LS_MEETING, {
         segments: state.segments.slice(-4000),
-        questions: state.questions.slice(-200),
+        questions: state.questions,
+        answers: state.answers.slice(-200),
+        retired: state.retired.slice(-200),
         elapsedMs: elapsedNow(),
         started: state.started,
         ended: state.ended,
@@ -804,15 +916,19 @@
   function loadMeeting(m) {
     state.segments = Array.isArray(m.segments) ? m.segments : [];
     state.questions = Array.isArray(m.questions) ? m.questions : [];
+    state.answers = Array.isArray(m.answers) ? m.answers : [];
+    state.retired = Array.isArray(m.retired) ? m.retired : [];
     state.elapsedMs = m.elapsedMs || 0;
     state.started = !!m.started;
     state.ended = !!m.ended;
     state.summaryText = m.summaryText || '';
-    qSeq = state.questions.reduce((n, q) => Math.max(n, q.id || 0), 0);
-    state.qLastChars = plainChars();
+    qSeq = state.questions.concat(state.answers)
+      .reduce((n, q) => Math.max(n, parseInt(String(q.id || '').replace(/\D/g, ''), 10) || 0), 0);
+    state.lastChars = plainChars();
     if (m.topic) $('topic').value = m.topic;
     renderTranscript();
     renderQuestions();
+    renderAnswers();
     $('chrono').textContent = mmss(state.elapsedMs);
     $('endBtn').disabled = !state.segments.length;
     updateUi();
@@ -825,6 +941,8 @@
     'POINTS CLÉS ET INFORMATIONS OBTENUES', 'POINTS CLES ET INFORMATIONS OBTENUES',
     'DÉCISIONS PRISES', 'DECISIONS PRISES',
     'ACTIONS À FAIRE', 'ACTIONS A FAIRE',
+    'QUESTIONS & RÉPONSES OBTENUES', 'QUESTIONS & REPONSES OBTENUES',
+    'QUESTIONS ET RÉPONSES OBTENUES', 'QUESTIONS ET REPONSES OBTENUES',
     'QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS',
     'QUESTIONS RESTEES SANS REPONSE / POINTS OUVERTS',
     'QUESTIONS RESTÉES SANS RÉPONSE', 'QUESTIONS RESTEES SANS REPONSE',
@@ -843,7 +961,6 @@
     lines.forEach((line, i) => {
       const head = isHeading(line);
       if (head) { out.push('<h3>' + esc(head) + '</h3>'); return; }
-      // Les marges du titre suffisent : on retire les lignes vides qui le jouxtent.
       if (!line.trim()) {
         const prev = i > 0 ? lines[i - 1] : '';
         let next = '';
@@ -864,13 +981,15 @@
     $('copyBtn').disabled = true;
     $('dlBtn').disabled = true;
     try {
-      const out = await callApi({
+      const data = await callApi({
         mode: 'summary',
         transcript: fullText(),
-        asked: state.questions.filter((q) => q.asked).map((q) => q.text)
+        qa: state.answers.map((a) => ({ question: a.text, answer: a.answer })),
+        open: state.questions.map((q) => q.text)
       });
-      state.summaryText = out;
-      renderSummary(out);
+      state.summaryText = (data && data.text) || '';
+      if (!state.summaryText) throw new Error('Réponse vide du serveur.');
+      renderSummary(state.summaryText);
       $('copyBtn').disabled = false;
       $('dlBtn').disabled = false;
       persist();
@@ -888,7 +1007,6 @@
   /* ============================== EXPORTS =============================== */
   function buildMarkdown() {
     const topic = $('topic').value.trim();
-    const askedQ = state.questions.filter((q) => q.asked);
     const lines = [
       '# Bilan de réunion',
       '',
@@ -902,13 +1020,18 @@
       '',
       '---',
       '',
-      '## Questions posées',
+      '## Questions & réponses obtenues',
       ''
     ];
-    lines.push(askedQ.length ? askedQ.map((q) => '- ' + q.text).join('\n') : '_Aucune question marquée comme posée._');
-    lines.push('', '## Questions proposées non posées', '');
-    const notAsked = state.questions.filter((q) => !q.asked);
-    lines.push(notAsked.length ? notAsked.map((q) => '- ' + q.text).join('\n') : '_Aucune._');
+    lines.push(state.answers.length
+      ? state.answers.map((a) => '- **' + a.text + '**\n  → ' + a.answer).join('\n')
+      : '_Aucune question n’a reçu de réponse._');
+
+    lines.push('', '## Questions restées sans réponse', '');
+    lines.push(state.questions.length
+      ? state.questions.map((q) => '- ' + q.text).join('\n')
+      : '_Aucune._');
+
     lines.push('', '---', '', '## Transcription complète', '', fullText() || '_Vide._', '');
     return lines.join('\n');
   }
@@ -941,23 +1064,27 @@
   /* =========================== NOUVELLE RÉUNION ========================= */
   function resetMeeting() {
     stopListening();
-    // stopListening() programme une sauvegarde différée : l'annuler, sinon elle
-    // ressusciterait la réunion juste après l'effacement.
     cancelPersist();
-    state.segments = []; state.questions = []; state.summaryText = '';
-    state.elapsedMs = 0; state.started = false; state.ended = false;
-    state.qLastChars = 0; state.qLastAt = 0; state.recognition = null;
+    state.segments = []; state.questions = []; state.answers = []; state.retired = [];
+    state.summaryText = ''; state.elapsedMs = 0;
+    state.started = false; state.ended = false;
+    state.lastChars = 0; state.lastCallAt = 0;
+    state.liveLoading = false; state.livePending = false;
+    clearTimeout(gateTimer);
+    state.recognition = null;
     qSeq = 0;
     lsDel(LS_MEETING);
     renderTranscript();
     renderQuestions();
+    renderAnswers();
     setInterim('');
+    setAnalyzing(false);
     $('chrono').textContent = '00:00';
     $('endBtn').disabled = true;
     $('topic').disabled = false;
     $('trDetails').open = false;
     $('summaryView').hidden = true;
-    ['qErr', 'micMsg', 'resumeMsg', 'fatalMsg'].forEach((id) => showMsg(id, ''));
+    ['micMsg', 'resumeMsg', 'fatalMsg'].forEach((id) => showMsg(id, ''));
     checkSupport();
     updateUi();
   }
@@ -977,6 +1104,7 @@
   function boot() {
     initTranscriptDom();
     renderQuestions();
+    renderAnswers();
 
     const savedTopic = lsGet(LS_TOPIC);
     if (savedTopic) $('topic').value = savedTopic;
@@ -986,7 +1114,6 @@
 
     const supported = checkSupport();
 
-    // Réunion non terminée retrouvée ?
     const m = lsGet(LS_MEETING);
     const recent = m && m.savedAt && (Date.now() - m.savedAt < 12 * 3600 * 1000);
     const worthResuming = recent && Array.isArray(m.segments) && m.segments.length > 0;
@@ -1010,7 +1137,6 @@
       updateUi();
     }
 
-    // Premier lancement : on demande le mot de passe une seule fois.
     if (!state.password && supported && !worthResuming) {
       askPassword('Saisis le mot de passe de l’application. Il sera mémorisé sur ce téléphone.');
     }

@@ -35,7 +35,8 @@ Ajoute-les une par une, en cochant bien **Production** :
 | `ANTHROPIC_API_KEY` | ta clé `sk-ant-…` → [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | `APP_PASSWORD` | un mot de passe que tu choisis — c'est celui que tu taperas dans l'app |
 
-> Optionnel : `CLAUDE_MODEL` pour changer de modèle. Sans elle, c'est `claude-sonnet-5`.
+> Optionnel : `CLAUDE_MODEL` (bilan, défaut `claude-sonnet-5`) et `CLAUDE_MODEL_FAST`
+> (analyse temps réel, défaut `claude-haiku-4-5-20251001`).
 >
 > Optionnel : `ANTHROPIC_WORKSPACE_ID`, **uniquement** si l'app renvoie l'erreur
 > « votre clé n'est rattachée à aucun workspace ». Plus simple : créer une clé

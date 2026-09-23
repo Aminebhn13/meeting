@@ -12,47 +12,73 @@ Aucune dépendance, aucun build : un `index.html` statique + une fonction server
 
 ## L'écran
 
+Rien à cliquer pendant la réunion.
+
 | | |
 |---|---|
 | **Sujet de la réunion** | Un champ, optionnel, en haut. Sert de contexte à l'IA. Mémorisé. |
 | **Gros bouton rond** | 🎙 Écouter / ⏸ Pause. À côté : point rouge clignotant et chronomètre. |
-| **Questions à poser** | Les 3 plus récentes en grosse police, lisibles d'un coup d'œil. Les précédentes descendent en gris dans un historique repliable. **Un tap barre une question** une fois posée. Le bouton ↻ force de nouvelles questions. |
+| **Questions à poser** | Toujours 3 questions, en grosse police. Elles se renouvellent **toutes seules** : dès que l'interlocuteur répond à l'une d'elles, elle se coche en vert, affiche la réponse obtenue 2 secondes, puis s'efface et une nouvelle prend sa place. |
+| **✓ Réponses obtenues (n)** | Liste repliable sous les questions : chaque question traitée avec la réponse captée. Fermée par défaut. |
 | **Voir la transcription** | Bloc replié par défaut. |
 | **Terminer la réunion** | Bouton fixe en bas : arrête l'écoute et affiche le bilan en plein écran. |
 
-Le mot de passe est demandé **une seule fois**, au premier lancement, dans une petite fenêtre.
-Il n'apparaît jamais sur l'écran principal. S'il est refusé (401), il est redemandé.
+Le mot de passe est demandé **une seule fois**, au premier lancement. S'il est refusé (401), il est redemandé.
 
-## Les questions
+Un petit **↻** permet de forcer une analyse immédiate — jamais nécessaire, mais utile si le réseau a sauté.
 
-Générées **automatiquement toutes les ~45 secondes**, et seulement si **au moins ~150 nouveaux
-caractères** ont été transcrits depuis la dernière fois — pas de conversation, pas d'appel.
+## Comment les questions se mettent à jour
 
-L'IA propose 3 questions courtes et naturelles, à poser maintenant, en rebondissant sur ce qui vient
-d'être dit. Dans l'ordre de priorité : clarifier les zones floues, obtenir des chiffres, délais,
-budget et responsables, faire émerger les risques et les dépendances, faire avancer vers une décision.
+À chaque cycle, l'IA reçoit les 3 questions affichées (avec leur id) et la fin de la transcription,
+et répond en JSON strict :
 
-Les questions déjà proposées et celles déjà posées sont renvoyées au backend à chaque appel, pour
-éviter les doublons.
+```json
+{
+  "answered": [{ "id": "q3", "answer": "résumé de la réponse en une phrase" }],
+  "obsolete": ["q5"],
+  "new":      ["nouvelle question", "…"]
+}
+```
+
+- **answered** — l'interlocuteur a répondu, même sans reprendre les mots de la question, même si
+  vous ne l'avez pas posée, même si le sujet est venu spontanément.
+- **obsolete** — la conversation est passée à autre chose.
+- **new** — de quoi revenir à 3 questions à l'écran, sans doublon avec ce qui a déjà été proposé ou traité.
+
+Le parsing est tolérant (bloc de code, texte autour, accolades dans les chaînes). **En cas d'échec,
+l'affichage reste tel quel, sans message d'erreur** — jamais de perturbation en pleine réunion.
+
+**Cadence** : une analyse part dès qu'une phrase est transcrite **et** qu'environ 80 nouveaux
+caractères sont arrivés, avec au plus **un appel toutes les 12 s**. Jamais deux appels en parallèle :
+si du texte arrive pendant une analyse, la suivante est relancée dès la fin. Seuls les
+**4 000 derniers caractères** partent pour ce mode — rapide et peu coûteux. La transcription
+complète est réservée au bilan.
+
+**Deux modèles** : Haiku 4.5 pour le temps réel (`CLAUDE_MODEL_FAST`), Sonnet pour le bilan
+(`CLAUDE_MODEL`).
 
 ## Le bilan
 
-Au clic sur **Terminer la réunion** — sept sections, rien d'inventé, « non précisé » quand
+Au clic sur **Terminer la réunion** — huit sections, rien d'inventé, « non précisé » quand
 l'information manque :
 
 `RÉSUMÉ` · `POINTS CLÉS & INFORMATIONS OBTENUES` · `DÉCISIONS PRISES` ·
-`ACTIONS À FAIRE` (qui → quoi → échéance) · `QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS` ·
-`OÙ ON EN EST` · `PROCHAINE ÉTAPE RECOMMANDÉE`
+`ACTIONS À FAIRE` (qui → quoi → échéance) · `QUESTIONS & RÉPONSES OBTENUES` ·
+`QUESTIONS RESTÉES SANS RÉPONSE / POINTS OUVERTS` · `OÙ ON EN EST` ·
+`PROCHAINE ÉTAPE RECOMMANDÉE`
 
-Puis **📋 Copier**, **⬇ Télécharger .md** (bilan + questions posées + transcription complète)
-et **Nouvelle réunion**.
+Les questions traitées pendant la réunion et celles encore ouvertes sont transmises au modèle,
+qui les reprend dans ces deux sections.
+
+Puis **📋 Copier**, **⬇ Télécharger .md** (bilan + questions/réponses + questions ouvertes +
+transcription complète) et **Nouvelle réunion**.
 
 ## Ne rien perdre
 
-Transcription et questions sont écrites dans le `localStorage` pendant l'écoute. Si la page se
-recharge ou si l'écran se verrouille, l'app propose au lancement suivant de **reprendre la réunion**.
-Le Wake Lock garde l'écran allumé, et la reconnaissance vocale redémarre toute seule quand le
-navigateur la coupe — ce qui arrive souvent sur mobile.
+Transcription, questions actives et réponses obtenues sont écrites dans le `localStorage` pendant
+l'écoute. Si la page se recharge ou si l'écran se verrouille, l'app propose au lancement suivant de
+**reprendre la réunion**. Le Wake Lock garde l'écran allumé, et la reconnaissance vocale redémarre
+toute seule quand le navigateur la coupe — ce qui arrive souvent sur mobile.
 
 ---
 
@@ -65,7 +91,8 @@ d'environnement, puis un redéploiement. **Marche à suivre détaillée : [DEPLO
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | oui | — | Clé API Anthropic. **Jamais exposée au navigateur.** |
 | `APP_PASSWORD` | recommandé | — | Si défini, le header `x-app-password` est exigé ; sinon `401`. |
-| `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle utilisé. |
+| `CLAUDE_MODEL` | non | `claude-sonnet-5` | Modèle du bilan. |
+| `CLAUDE_MODEL_FAST` | non | `claude-haiku-4-5-20251001` | Modèle de l'analyse temps réel. |
 | `ANTHROPIC_WORKSPACE_ID` | non | — | Uniquement si la clé n'est rattachée à aucun workspace (Anthropic renvoie alors une erreur 400 le réclamant). |
 
 > Les variables ne s'appliquent qu'après un **redéploiement**.
@@ -75,17 +102,31 @@ d'environnement, puis un redéploiement. **Marche à suivre détaillée : [DEPLO
 `POST /api/claude` — POST uniquement, `405` sinon.
 
 ```jsonc
+// mode "live" — analyse temps réel, modèle rapide
 {
-  "mode": "questions" | "summary",
-  "topic": "…",        // sujet de la réunion, optionnel
-  "transcript": "…",   // horodatée ; 60 000 derniers caractères conservés
-  "proposed": ["…"],   // questions déjà proposées (mode questions)
-  "asked": ["…"]       // questions déjà posées à voix haute
+  "mode": "live",
+  "topic": "…",                              // optionnel
+  "transcript": "…",                         // 4 000 derniers caractères
+  "questions": [{ "id": "q1", "text": "…" }], // les 3 affichées
+  "answered": ["…"]                          // textes déjà traités, anti-doublon
 }
+// -> { "answered": [{ "id", "answer" }], "obsolete": ["id"], "new": ["…"] }
+
+// mode "summary" — bilan, modèle principal
+{
+  "mode": "summary",
+  "topic": "…",
+  "transcript": "…",                         // 60 000 derniers caractères
+  "qa":   [{ "question": "…", "answer": "…" }],
+  "open": ["…"]                              // questions encore actives
+}
+// -> { "text": "…" }
 ```
 
-Réponse : `{ "text": "…" }` ou `{ "error": "…" }`.
-`max_tokens` : **3000** pour `summary`, **500** pour `questions`.
+En cas d'erreur : `{ "error": "…" }`.
+`max_tokens` : **3000** pour `summary`, **400** pour `live`.
+Le mode `live` renvoie toujours les trois listes — vides si le modèle n'a pas produit de JSON
+exploitable, pour ne jamais perturber l'affichage.
 
 Le prompt système précise que la transcription vient d'une reconnaissance vocale imparfaite, sans
 distinction des orateurs, et impose des réponses en français, concises, sans préambule.
