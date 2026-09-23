@@ -26,7 +26,7 @@
     --danger:      #f85149;
     --ok:          #3fb950;
     --warn:        #d29922;
-    --anim:        300ms;
+    --anim:        250ms;
     --ease:        cubic-bezier(.4, 0, .2, 1);
     --safe-b: env(safe-area-inset-bottom, 0px);
     --safe-t: env(safe-area-inset-top, 0px);
@@ -49,11 +49,27 @@
   #topic {
     width: 100%; background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; color: var(--text); font-family: inherit; font-size: 16px;
-    padding: 13px 14px; appearance: none; -webkit-appearance: none;
+    line-height: 1.45; padding: 13px 14px; resize: vertical; min-height: 92px;
+    appearance: none; -webkit-appearance: none;
   }
   #topic::placeholder { color: var(--faint); }
   #topic:focus { outline: none; border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(88,166,255,.14); }
-  #topic:disabled { opacity: .55; }
+  #topicHint {
+    font-size: 12px; color: var(--faint); margin-top: 7px; line-height: 1.4;
+    transition: color var(--anim) var(--ease);
+  }
+  #topicHint.ready { color: var(--ok); }
+
+  /* Sujet replié pendant l'écoute : une ligne, tapable pour modifier. */
+  #topicBar {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--dim); font-family: inherit; font-size: 13px; text-align: left;
+    padding: 10px 12px; cursor: pointer;
+  }
+  #topicBar:active { background: var(--surface-2); }
+  #topicBar .txt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #topicBar .pen { color: var(--faint); font-size: 13px; flex: none; }
 
   /* ---------------- Bouton d'écoute ---------------- */
   .listen-row { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
@@ -68,7 +84,7 @@
   #listenBtn .ico { font-size: 26px; line-height: 1; }
   #listenBtn:active { transform: scale(.95); }
   #listenBtn.on { background: var(--surface-2); color: var(--text); box-shadow: 0 0 0 3px rgba(248,81,73,.3); }
-  #listenBtn:disabled { opacity: .4; box-shadow: none; cursor: default; }
+  #listenBtn:disabled { opacity: .35; box-shadow: none; cursor: default; background: var(--surface-2); color: var(--dim); }
 
   .meta { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
   .live { display: flex; align-items: center; gap: 9px; }
@@ -105,7 +121,7 @@
   .icon-btn:disabled { opacity: .4; cursor: default; }
 
   /* ---------------- Questions actives ---------------- */
-  ul.qlist { list-style: none; margin: 0; padding: 0; }
+  ul.qlist { list-style: none; margin: 0; padding: 0; min-height: 318px; }
   ul.qlist li {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -125,6 +141,14 @@
       border-left-color var(--anim) var(--ease);
   }
   .qtext { font-size: 19px; line-height: 1.4; font-weight: 500; transition: color var(--anim) var(--ease); }
+  .qwhy {
+    margin-top: 7px; font-size: 13px; line-height: 1.4; color: var(--faint);
+    display: flex; gap: 6px; align-items: flex-start;
+  }
+  .qwhy:empty { display: none; }
+  .qwhy .bulb { flex: none; }
+  ul.qlist li.answered .qwhy { opacity: .5; }
+
   .qmark {
     position: absolute; top: 14px; right: 14px;
     color: var(--ok); font-size: 17px; font-weight: 700;
@@ -191,6 +215,8 @@
   }
   ul.answers .aq { font-size: 14px; color: var(--faint); line-height: 1.4; }
   ul.answers .aa { font-size: 15px; color: var(--text); line-height: 1.45; margin-top: 3px; }
+  ul.answers .aw { font-size: 12.5px; color: var(--faint); line-height: 1.4; margin-top: 4px; }
+  ul.answers .aw:empty { display: none; }
 
   /* ---------------- Transcription ---------------- */
   details.tr { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin: 18px 0 0; }
@@ -286,6 +312,12 @@
     display: flex; flex-direction: column; gap: 9px; background: var(--surface);
   }
   .center-load { text-align: center; color: var(--dim); padding: 40px 20px; font-size: 15px; }
+  .caret {
+    display: inline-block; width: 7px; height: 1.05em; background: var(--accent);
+    vertical-align: -2px; margin-left: 2px; animation: caret 1s steps(2) infinite;
+  }
+  @keyframes caret { 50% { opacity: 0 } }
+  @media (prefers-reduced-motion: reduce) { .caret { animation: none } }
 </style>
 </head>
 <body>
@@ -294,9 +326,12 @@
 <div class="msg warn" id="micMsg"></div>
 <div class="msg info" id="resumeMsg"></div>
 
-<div class="topic-wrap">
-  <input type="text" id="topic" placeholder="Sujet de la réunion (optionnel)" autocomplete="off" enterkeyhint="done">
+<div class="topic-wrap" id="topicWrap">
+  <textarea id="topic" rows="3" autocomplete="off"
+    placeholder="Ex : cadrage du déploiement AppLocker avec le client — je veux obtenir le planning, le budget et les contraintes"></textarea>
+  <div id="topicHint">Décris le sujet pour que les questions soient pertinentes</div>
 </div>
+<button id="topicBar" hidden><span class="pen">✎</span><span class="txt"></span></button>
 
 <div class="listen-row">
   <button id="listenBtn"><span class="ico">🎙</span><span id="listenLabel">Écouter</span></button>
@@ -314,7 +349,7 @@
 </div>
 
 <ul class="qlist" id="qList"></ul>
-<div class="placeholder" id="qPlaceholder">Appuie sur <b>Écouter</b> — les questions se mettent à jour toutes seules.</div>
+<div class="placeholder" id="qPlaceholder">Décris le sujet ci-dessus : trois questions d’ouverture apparaîtront ici.</div>
 
 <button class="fold-toggle" id="ansToggle" aria-expanded="false" hidden>
   <span class="chev">▶</span><span class="tick">✓</span><span id="ansLabel">Réponses obtenues</span>
@@ -382,6 +417,7 @@
   const LIVE_MIN_NEW_CHARS = 80;    // …et seulement après ~80 nouveaux caractères
   const LIVE_TAIL_CHARS = 4000;     // on n'envoie que la fin de la transcription
   const TARGET_QUESTIONS = 3;
+  const MIN_TOPIC_CHARS = 10;      // sujet obligatoire
   const ANSWER_HOLD_MS = 2000;      // la réponse reste lisible 2 s
   const ANIM_MS = 300;
 
@@ -397,7 +433,7 @@
     wakeLock: null, recognition: null,
     manualStop: false, errorStreak: 0,
     liveLoading: false, livePending: false, lastCallAt: 0, lastChars: 0,
-    summaryText: '', password: '', supported: false
+    summaryText: '', password: '', supported: false, topicCollapsed: false
   };
 
   let qSeq = 0;
@@ -428,7 +464,9 @@
   $('pwInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitPassword(); } });
 
   /* ============================== APPELS API ============================= */
-  async function callApi(payload, allowRetry) {
+  // Réponse diffusée en SSE : onDelta reçoit le texte au fil de l'eau,
+  // la promesse se résout sur l'objet « done », source de vérité.
+  async function callApi(payload, onDelta, allowRetry) {
     if (!state.password) {
       await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
     }
@@ -437,31 +475,62 @@
       res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-app-password': state.password },
-        body: JSON.stringify(Object.assign({ topic: $('topic').value.trim() }, payload))
+        body: JSON.stringify(Object.assign({ topic: topicValue() }, payload))
       });
     } catch (e) {
       throw new Error('Serveur injoignable — vérifie ta connexion.');
     }
-
-    let data = null;
-    try { data = await res.json(); } catch (e) { /* non JSON */ }
 
     if (res.status === 401) {
       state.password = '';
       lsDel(LS_PW);
       if (allowRetry !== false) {
         await askPassword('Mot de passe refusé. Saisis celui défini dans APP_PASSWORD sur Vercel.');
-        return callApi(payload, false);
+        return callApi(payload, onDelta, false);
       }
       throw new Error('Mot de passe refusé.');
     }
+
     if (!res.ok) {
+      let data = null;
+      try { data = await res.json(); } catch (e) { /* non JSON */ }
       const err = new Error((data && data.error) || ('Erreur serveur ' + res.status + '.'));
       err.status = res.status;
       throw err;
     }
-    if (!data) throw new Error('Réponse vide du serveur.');
-    return data;
+
+    // Le serveur peut répondre en JSON simple (cas dégradé) plutôt qu'en SSE.
+    const ctype = res.headers.get('content-type') || '';
+    if (ctype.indexOf('text/event-stream') === -1 || !res.body) {
+      const data = await res.json().catch(() => null);
+      if (!data) throw new Error('Réponse vide du serveur.');
+      return data;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '', result = null, streamError = null;
+
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buf += decoder.decode(chunk.value, { stream: true });
+      const blocks = buf.split('\n\n');
+      buf = blocks.pop();
+      for (let i = 0; i < blocks.length; i++) {
+        const ev = (blocks[i].match(/^event: (\w+)$/m) || [])[1];
+        const raw = (blocks[i].match(/^data: (.*)$/m) || [])[1];
+        if (!ev || !raw) continue;
+        let data = null;
+        try { data = JSON.parse(raw); } catch (e) { continue; }
+        if (ev === 'delta' && onDelta) onDelta(data.t || '');
+        else if (ev === 'done') result = data;
+        else if (ev === 'error') streamError = data.error;
+      }
+    }
+    if (!result && streamError) throw new Error(streamError);
+    if (!result) throw new Error('Flux interrompu avant la fin.');
+    return result;
   }
 
   /* ============================ TRANSCRIPTION =========================== */
@@ -533,6 +602,7 @@
     li.innerHTML =
       '<span class="qmark">✓</span>' +
       '<div class="qtext">' + esc(q.text) + '</div>' +
+      (q.why ? '<div class="qwhy"><span class="bulb">💡</span><span>' + esc(q.why) + '</span></div>' : '') +
       '<div class="qanswer"></div>';
     return li;
   }
@@ -592,7 +662,9 @@
     $('ansToggle').hidden = n === 0;
     $('ansLabel').textContent = 'Réponses obtenues (' + n + ')';
     $('ansList').innerHTML = state.answers.map((a) =>
-      '<li><div class="aq">' + esc(a.text) + '</div><div class="aa">' + esc(a.answer) + '</div></li>'
+      '<li><div class="aq">' + esc(a.text) + '</div>' +
+      '<div class="aa">' + esc(a.answer) + '</div>' +
+      (a.why ? '<div class="aw">💡 ' + esc(a.why) + '</div>' : '') + '</li>'
     ).join('');
     if (n === 0) {
       $('ansList').hidden = true;
@@ -644,6 +716,31 @@
     return false;
   }
 
+  // Ajoute une question si elle n'existe pas déjà. Utilisée à la fois par le
+  // flux (au fil de l'eau) et par l'événement final : le doublon est écarté,
+  // donc une question affichée pendant le streaming n'est jamais ajoutée deux fois.
+  function addQuestionIfNew(item) {
+    if (state.questions.length >= TARGET_QUESTIONS) return false;
+    const q = normalizeIncoming(item);
+    if (!q) return false;
+    if (isDuplicate(q.question, knownTexts().map(normKey))) return false;
+    const entry = { id: nextId(), text: q.question, why: q.why, at: Date.now() };
+    state.questions.push(entry);
+    addCard(entry, true);
+    return true;
+  }
+
+  function normalizeIncoming(item) {
+    if (typeof item === 'string') {
+      const t = item.trim();
+      return t.length > 3 ? { question: t, why: '' } : null;
+    }
+    if (!item || typeof item !== 'object') return null;
+    const question = String(item.question || item.text || '').trim();
+    const why = String(item.why || '').trim();
+    return question.length > 3 ? { question: question, why: why } : null;
+  }
+
   function applyLive(data) {
     const answered = Array.isArray(data.answered) ? data.answered : [];
     const obsolete = Array.isArray(data.obsolete) ? data.obsolete : [];
@@ -654,7 +751,7 @@
       const q = state.questions.find((x) => x.id === a.id);
       if (!q) return;
       state.questions = state.questions.filter((x) => x.id !== a.id);
-      state.answers.push({ id: q.id, text: q.text, answer: a.answer, at: Date.now() });
+      state.answers.push({ id: q.id, text: q.text, why: q.why || '', answer: a.answer, at: Date.now() });
       markAnswered(a.id, a.answer);
     });
 
@@ -668,21 +765,42 @@
     });
 
     // 3. Nouvelles : on complète jusqu'à TARGET_QUESTIONS, sans doublon.
-    const seen = knownTexts().map(normKey);
     let added = 0;
-    fresh.forEach((text) => {
-      if (state.questions.length >= TARGET_QUESTIONS) return;
-      if (isDuplicate(text, seen)) return;
-      seen.push(normKey(text));
-      const q = { id: nextId(), text: text, at: Date.now() };
-      state.questions.push(q);
-      addCard(q, true);
-      added++;
-    });
+    fresh.forEach((item) => { if (addQuestionIfNew(item)) added++; });
 
     if (answered.length) renderAnswers();
     if (added) buzz();
     if (answered.length || obsolete.length || added) persist();
+  }
+
+  // Parcourt le texte accumulé et renvoie les objets JSON complets qu'il
+  // contient (conscient des chaînes et des échappements). Une question est
+  // affichée dès que son objet est refermé, sans attendre la fin du flux.
+  function scanCompleteObjects(buf) {
+    const out = [];
+    const stack = [];
+    let inStr = false, escaped = false;
+    for (let i = 0; i < buf.length; i++) {
+      const c = buf[i];
+      if (inStr) {
+        if (escaped) escaped = false;
+        else if (c === '\\') escaped = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') { inStr = true; continue; }
+      // Une pile, pas un simple compteur : les questions sont IMBRIQUÉES dans
+      // l'enveloppe, qui ne se referme qu'à la fin du flux. Chaque accolade
+      // fermée livre son objet, quel que soit son niveau.
+      if (c === '{') stack.push(i);
+      else if (c === '}') {
+        const start = stack.pop();
+        if (start !== undefined) {
+          try { out.push(JSON.parse(buf.slice(start, i + 1))); } catch (e) { /* incomplet */ }
+        }
+      }
+    }
+    return out;   // ordre de fermeture : le préfixe reste stable quand le flux grandit
   }
 
   async function runLive() {
@@ -690,18 +808,37 @@
     state.livePending = false;
     const charsAtCall = plainChars();
     setAnalyzing(true);
+
+    let buf = '', consumed = 0, streamed = 0;
+    const onDelta = (t) => {
+      buf += t;
+      // Le 1er objet complet est l'enveloppe si elle est déjà refermée ;
+      // on ne retient que ceux qui portent une question.
+      const objs = scanCompleteObjects(buf);
+      for (let i = consumed; i < objs.length; i++) {
+        const o = objs[i];
+        if (o && typeof o === 'object' && (o.question || o.text)) {
+          if (addQuestionIfNew(o)) { streamed++; buzz(); }
+        }
+      }
+      consumed = objs.length;
+    };
+
     try {
       const data = await callApi({
         mode: 'live',
         transcript: tailText(),
         questions: state.questions.map((q) => ({ id: q.id, text: q.text })),
         answered: state.answers.map((a) => a.text).concat(state.retired)
-      });
+      }, onDelta);
+      // L'événement final fait autorité ; les questions déjà affichées
+      // pendant le flux sont écartées comme doublons.
       applyLive(data || {});
       state.lastChars = charsAtCall;
     } catch (e) {
       // En réunion, une erreur d'analyse ne doit rien casser à l'écran.
       state.lastChars = charsAtCall;
+      if (streamed) { renderAnswers(); persist(); }
     } finally {
       state.lastCallAt = Date.now();
       state.liveLoading = false;
@@ -718,7 +855,7 @@
   let gateTimer = null;
 
   function maybeAnalyze(force) {
-    if (!state.supported && !force) return;
+    if (!topicOk()) return;                       // le sujet est la base de tout
     if (state.liveLoading) { state.livePending = true; return; }
     const chars = plainChars();
     if (!force) {
@@ -733,12 +870,25 @@
         return;
       }
     }
-    if (chars < 40) return;
+    if (!force && chars < 40) return;
     clearTimeout(gateTimer);
     runLive();
   }
 
   $('refreshQ').addEventListener('click', () => maybeAnalyze(true));
+
+  // Prépare 3 questions d'ouverture dès que le sujet est défini, pour que
+  // l'écran ne soit jamais vide au démarrage. Une seule fois par sujet.
+  let prewarmedFor = '';
+  function prewarm() {
+    if (!topicOk()) return;
+    const key = normKey(topicValue());
+    if (key === prewarmedFor) return;
+    if (state.questions.length >= TARGET_QUESTIONS) return;
+    if (state.liveLoading || state.segments.length) return;
+    prewarmedFor = key;
+    runLive();
+  }
 
   function showMsg(id, html, hideMs) {
     const el = $(id);
@@ -822,6 +972,7 @@
 
   async function startListening() {
     if (!state.supported) return;
+    if (!topicOk()) { $('topic').focus(); return; }
     if (!state.password) {
       await askPassword('Saisis le mot de passe de l’application pour activer le copilote.');
     }
@@ -847,8 +998,11 @@
     // Relance périodique : rattrape le cas « assez de texte, mais délai non écoulé ».
     state.liveTimer = setInterval(() => maybeAnalyze(), 2000);
     $('endBtn').disabled = false;
-    $('topic').disabled = true;
+    setTopicCollapsed(true);
     updateUi();
+    // Aucun écran vide : si le pré-chauffage n'a rien produit, on lance
+    // immédiatement un premier appel avec le sujet seul.
+    if (!state.questions.length) maybeAnalyze(true);
     persist();
   }
 
@@ -911,7 +1065,42 @@
   $('listenBtn').addEventListener('click', () => {
     if (state.listening) stopListening(); else startListening();
   });
-  $('topic').addEventListener('change', () => lsSet(LS_TOPIC, $('topic').value.trim()));
+
+  /* --------------------------- Sujet obligatoire ------------------------- */
+  const topicValue = () => $('topic').value.trim();
+  const topicOk = () => topicValue().length >= MIN_TOPIC_CHARS;
+
+  function updateTopicUi() {
+    const ok = topicOk();
+    $('listenBtn').disabled = !ok || !state.supported;
+    $('topicHint').classList.toggle('ready', ok);
+    $('topicHint').textContent = ok
+      ? 'Sujet défini — les questions serviront cet objectif.'
+      : 'Décris le sujet pour que les questions soient pertinentes';
+  }
+
+  // Pendant l'écoute, le sujet se replie en une ligne ; un tap le rouvre.
+  function setTopicCollapsed(collapsed) {
+    state.topicCollapsed = collapsed;
+    $('topicWrap').hidden = collapsed;
+    $('topicBar').hidden = !collapsed;
+    if (collapsed) $('topicBar').querySelector('.txt').textContent = topicValue();
+  }
+
+  $('topicBar').addEventListener('click', () => {
+    setTopicCollapsed(false);
+    $('topic').focus();
+  });
+
+  $('topic').addEventListener('input', updateTopicUi);
+  $('topic').addEventListener('change', () => { if (topicOk()) lsSet(LS_TOPIC, topicValue()); });
+  $('topic').addEventListener('blur', () => {
+    updateTopicUi();
+    if (!topicOk()) return;
+    lsSet(LS_TOPIC, topicValue());
+    if (state.started) setTopicCollapsed(true);   // modif en cours de réunion
+    else prewarm();                               // pré-chauffage avant démarrage
+  });
 
   /* ============================ PERSISTANCE ============================= */
   let persistTimer = null;
@@ -953,11 +1142,14 @@
     renderAnswers();
     $('chrono').textContent = mmss(state.elapsedMs);
     $('endBtn').disabled = !state.segments.length;
+    updateTopicUi();
     updateUi();
   }
 
   /* ================================ BILAN =============================== */
   const HEADINGS = [
+    'SUJET DE LA RÉUNION', 'SUJET DE LA REUNION',
+    'OBJECTIF ATTEINT ?', 'OBJECTIF ATTEINT',
     'RÉSUMÉ', 'RESUME',
     'POINTS CLÉS & INFORMATIONS OBTENUES', 'POINTS CLES & INFORMATIONS OBTENUES',
     'POINTS CLÉS ET INFORMATIONS OBTENUES', 'POINTS CLES ET INFORMATIONS OBTENUES',
@@ -977,7 +1169,7 @@
     return HEADINGS.indexOf(t.toUpperCase()) !== -1 ? t.toUpperCase() : null;
   };
 
-  function renderSummary(text) {
+  function renderSummary(text, streaming) {
     const lines = text.split('\n');
     const out = [];
     lines.forEach((line, i) => {
@@ -991,7 +1183,7 @@
       }
       out.push(esc(line));
     });
-    $('summaryBody').innerHTML = out.join('\n');
+    $('summaryBody').innerHTML = out.join('\n') + (streaming ? '<span class="caret"></span>' : '');
   }
 
   async function endMeeting() {
@@ -1002,14 +1194,20 @@
     $('summaryBody').innerHTML = '<div class="center-load"><span class="spin"></span><br><br>Génération du bilan…</div>';
     $('copyBtn').disabled = true;
     $('dlBtn').disabled = true;
+    let acc = '';
+    const onDelta = (t) => {
+      acc += t;
+      // Le texte s'affiche au fur et à mesure, avec un curseur d'écriture.
+      renderSummary(acc, true);
+    };
     try {
       const data = await callApi({
         mode: 'summary',
         transcript: fullText(),
-        qa: state.answers.map((a) => ({ question: a.text, answer: a.answer })),
+        qa: state.answers.map((a) => ({ question: a.text, answer: a.answer, why: a.why || '' })),
         open: state.questions.map((q) => q.text)
-      });
-      state.summaryText = (data && data.text) || '';
+      }, onDelta);
+      state.summaryText = (data && data.text) || acc.trim();
       if (!state.summaryText) throw new Error('Réponse vide du serveur.');
       renderSummary(state.summaryText);
       $('copyBtn').disabled = false;
@@ -1036,6 +1234,7 @@
       '- **Durée** : ' + mmss(elapsedNow()),
       '- **Sujet** : ' + (topic || 'non précisé'),
       '',
+      '',
       '---',
       '',
       state.summaryText || 'non précisé',
@@ -1046,12 +1245,13 @@
       ''
     ];
     lines.push(state.answers.length
-      ? state.answers.map((a) => '- **' + a.text + '**\n  → ' + a.answer).join('\n')
+      ? state.answers.map((a) => '- **' + a.text + '**\n  → ' + a.answer +
+          (a.why ? '\n  _💡 ' + a.why + '_' : '')).join('\n')
       : '_Aucune question n’a reçu de réponse._');
 
     lines.push('', '## Questions restées sans réponse', '');
     lines.push(state.questions.length
-      ? state.questions.map((q) => '- ' + q.text).join('\n')
+      ? state.questions.map((q) => '- ' + q.text + (q.why ? '\n  _💡 ' + q.why + '_' : '')).join('\n')
       : '_Aucune._');
 
     lines.push('', '---', '', '## Transcription complète', '', fullText() || '_Vide._', '');
@@ -1103,11 +1303,13 @@
     setAnalyzing(false);
     $('chrono').textContent = '00:00';
     $('endBtn').disabled = true;
-    $('topic').disabled = false;
+    setTopicCollapsed(false);
+    prewarmedFor = '';
     $('trDetails').open = false;
     $('summaryView').hidden = true;
     ['micMsg', 'resumeMsg', 'fatalMsg'].forEach((id) => showMsg(id, ''));
     checkSupport();
+    updateTopicUi();
     updateUi();
   }
 
@@ -1129,12 +1331,13 @@
     renderAnswers();
 
     const savedTopic = lsGet(LS_TOPIC);
-    if (savedTopic) $('topic').value = savedTopic;
+    if (savedTopic) $('topic').value = savedTopic;   // prérempli avec le dernier sujet
 
     const pw = lsGet(LS_PW);
     if (pw) state.password = pw;
 
     const supported = checkSupport();
+    updateTopicUi();
 
     const m = lsGet(LS_MEETING);
     const recent = m && m.savedAt && (Date.now() - m.savedAt < 12 * 3600 * 1000);
@@ -1151,6 +1354,8 @@
       $('resumeYes').addEventListener('click', () => {
         loadMeeting(m);
         showMsg('resumeMsg', '');
+        updateTopicUi();
+        if (m.started) setTopicCollapsed(true);
         if (m.summaryText) { renderSummary(m.summaryText); $('summaryView').hidden = false; }
       });
       $('resumeNo').addEventListener('click', () => { showMsg('resumeMsg', ''); resetMeeting(); });
